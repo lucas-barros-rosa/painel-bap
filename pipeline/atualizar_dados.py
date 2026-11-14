@@ -1,0 +1,87 @@
+#!/usr/bin/env python3
+"""
+Painel Hidroclimático da Bacia do Alto Paraguai — atualização dos dados.
+Autor do painel: Lucas Barros da Rosa (University of British Columbia).
+
+Uso:
+    python atualizar_dados.py            # baixa tudo, calcula e grava em ../site/dados
+    python atualizar_dados.py --demo     # gera dados SIMULADOS, sem internet, só para ver o site
+    python atualizar_dados.py --sem-previsao --sem-rio   # pula etapas
+
+Arquivos do pipeline:
+    config.py          tudo o que dá para ajustar (fontes, períodos, regiões)
+    fontes.py          downloads (IBGE, CHIRPS, ERA5-Land, C3S, ANA, NOAA)
+    processamento.py   cálculos (anomalias, SPI, SPEI, ondas de calor, ano hidrológico, El Niño)
+    saida.py           monta e grava os arquivos que o site lê
+"""
+import argparse, sys
+import config as C
+import fontes
+from comum import TempoEsgotado, log
+from saida import gerar_saida, rio_json
+
+
+def principal():
+    ap = argparse.ArgumentParser(description="Atualiza os dados do painel hidroclimático da BAP.")
+    ap.add_argument("--demo", action="store_true", help="gera dados simulados (não usa internet)")
+    ap.add_argument("--sem-previsao", action="store_true", help="não baixa as previsões sazonais")
+    ap.add_argument("--sem-rio", action="store_true", help="não baixa o nível do rio")
+    args = ap.parse_args()
+    if args.demo:
+        import demo
+        return demo.rodar()
+
+    C.CACHE.mkdir(exist_ok=True)
+    try:
+        geo, m05, m10, desc = fontes.regioes()
+
+        log("Chuva mensal (CHIRPS v3)…")
+        P, anos_p, meses_p = fontes.chirps_mensal()
+        log("Chuva diária recente (CHIRPS v3, final + preliminar)…")
+        try:
+            chuva_diaria = fontes.chirps_diario()
+        except TempoEsgotado:
+            raise
+        except Exception as e:                                     # noqa
+            log(f"   CHIRPS diário indisponível: {str(e)[:150]}")
+            chuva_diaria = None
+        if chuva_diaria and chuva_diaria[0] is None:
+            chuva_diaria = None
+
+        log("Temperatura diária (ERA5-Land, Copernicus)…")
+        tmax, datas = fontes.era5_diario("daily_maximum")
+        tmin, datas_n = fontes.era5_diario("daily_minimum")
+        if len(datas) != len(datas_n) or (datas != datas_n).any():
+            sys.exit("Tmax e Tmin do ERA5-Land vieram com datas diferentes; rode de novo.")
+
+        previsoes = None
+        if not args.sem_previsao:
+            log("Previsões sazonais (C3S)…")
+            try:
+                previsoes = fontes.c3s_todas()
+            except TempoEsgotado:
+                raise
+            except Exception as e:                                 # noqa
+                log(f"   previsão indisponível: {str(e)[:200]}")
+        rio = None
+        if not args.sem_rio:
+            log("Nível do rio Paraguai (ANA)…")
+            rio = rio_json({(c, n): fontes.ana_serie(c) for c, n in C.ESTACOES_RIO})
+            if not rio["estacoes"]:
+                log("   sem dados de nível; dá para usar CSVs em pipeline/entrada/nivel_<codigo>.csv (data,nivel_cm)")
+        log("Índice do El Niño (NOAA/CPC)…")
+        enso = fontes.baixar_enso()
+    except TempoEsgotado:
+        log("Tempo limite desta execução atingido. O que já foi baixado está no cache; "
+            "a próxima execução continua de onde parou. O site não foi atualizado desta vez.")
+        return 0
+
+    fontes_txt = {"chuva": "CHIRPS v3, 0,05° (Funk et al., 2026)", "regioes": desc}
+    gerar_saida(P, anos_p, meses_p, tmax, tmin, datas, m05, m10, geo, previsoes, rio, enso,
+                chuva_diaria=chuva_diaria, fontes=fontes_txt)
+    (C.AQUI / ".completo").write_text("ok")                       # sinal para o GitHub publicar o site
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(principal())

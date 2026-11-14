@@ -1,0 +1,3 @@
+bap.geojson: limite da Bacia do Alto Paraguai enviado pelo autor (convertido de BAP.shp, WGS84). Obrigatório.
+Opcional: pantanal.geojson (ou .shp/.gpkg) para trocar o limite do Pantanal (padrão: bioma do IBGE).
+Opcional: nivel_<codigo>.csv com colunas data,nivel_cm (ex.: nivel_66825000.csv para Ladário).

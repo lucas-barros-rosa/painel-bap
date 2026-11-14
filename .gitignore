@@ -1,0 +1,12 @@
+# dados baixados e gerados: ficam no seu computador e no cache do GitHub, não no repositório
+pipeline/cache/
+pipeline/.completo
+site/dados/*
+!site/dados/LEIA.txt
+
+# arquivos do Python e do sistema
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
+.vscode/

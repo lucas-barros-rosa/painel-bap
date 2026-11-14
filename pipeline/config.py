@@ -56,7 +56,7 @@ C3S_MODELOS = [
 VERIF_INICIO = (2026, 1)               # primeira emissão usada em "Previsto × observado"
 C3S_AREA = [-13, -61, -23, -52]        # N, O, S, L (graus inteiros; grade de 1°)
 CDS_ESPERA_FILA_MIN = 10              # se o Copernicus disser "fila cheia", espera estes minutos…
-CDS_ESPERAS_FILA = 6                  # …no máximo estas vezes por pedido (depois fica para a próxima execução)
+CDS_ESPERAS_FILA = 2                  # …no máximo estas vezes (depois fica para a próxima execução)
 
 # ----------------------------------------------------------------------------- El Niño (NOAA/CPC)
 URL_RONI = "https://www.cpc.ncep.noaa.gov/data/indices/RONI.ascii.txt"   # índice oficial desde fev/2026

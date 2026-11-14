@@ -19,9 +19,21 @@ git status --short
 echo.
 set "MSG="
 set /p MSG=Descreva a alteracao em poucas palavras (ou so Enter): 
-if "%MSG%"=="" set "MSG=atualizacao do painel"
+if not defined MSG set "MSG=atualizacao do painel"
+if "%MSG: =%"=="" set "MSG=atualizacao do painel"
 git add -A
-git commit -m "%MSG%"
+git diff --cached --quiet
+if errorlevel 1 (
+  git commit -m "%MSG%"
+  if errorlevel 1 (
+    echo.
+    echo ERRO: o commit falhou. Leia a mensagem acima e me mande se nao entender.
+    pause
+    exit /b 1
+  )
+) else (
+  echo Nada novo para registrar; so conferindo o envio.
+)
 git push
 if errorlevel 1 (
   echo.

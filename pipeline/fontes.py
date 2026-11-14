@@ -494,6 +494,10 @@ def c3s_ler(arq, ano, mes):
             "p": np.asarray(p.values, float) * 1000.0 * seg[None, :, None, None]}      # m/s -> mm/mês
 
 
+class FilaCheia(Exception):
+    """O Copernicus continuou com a fila cheia depois de todas as esperas."""
+
+
 def _fila_cheia(e):
     """True se o Copernicus recusou porque já há pedidos demais na fila desta conta."""
     resp = getattr(e, "response", None)
@@ -529,7 +533,7 @@ def c3s_baixar(centro, sistema, ano, mes):
                     continue
                 log(f"   C3S {centro} {ano}-{mes:02d} ({tipo}): {str(e)[:300]}")
                 if _fila_cheia(e):
-                    return None                                        # fica para a próxima execução
+                    raise FilaCheia() from e                           # desiste das previsões nesta execução
                 break                                                  # outro erro: tenta o outro tipo
     return None
 
@@ -537,15 +541,31 @@ def c3s_baixar(centro, sistema, ano, mes):
 def c3s_todas():
     """Baixa todas as inicializações desde VERIF_INICIO. -> {modelo_id: {"nome":…, "rodadas": {(ano,mes): dados}}}"""
     hoje = dt.date.today()
-    out = {}
+    out, parar = {}, False
     for centro, sistema, nome in C.C3S_MODELOS:
+        if parar:                                                      # usa só o que já está no cache
+            rodadas = {}
+            for arq in sorted(C.CACHE.glob(f"c3s_{centro}_{sistema}_*.nc")):
+                a_, m_ = int(arq.stem[-6:-2]), int(arq.stem[-2:])
+                try:
+                    rodadas[(a_, m_)] = c3s_ler(arq, a_, m_)
+                except Exception:                                      # noqa
+                    pass
+            if rodadas:
+                out[centro] = {"nome": nome, "sistema": sistema, "rodadas": rodadas}
+            continue
         rodadas = {}
         a, m = C.VERIF_INICIO
         while (a, m) <= (hoje.year, hoje.month):
             if (a, m) == (hoje.year, hoje.month) and hoje.day < 6:
                 break                                                  # C3S publica a partir do dia 6
             checar_tempo()
-            arq = c3s_baixar(centro, sistema, a, m)
+            try:
+                arq = c3s_baixar(centro, sistema, a, m)
+            except FilaCheia:
+                log("   fila do Copernicus não andou; previsões que faltam ficam para a próxima execução")
+                parar = True
+                break
             if arq:
                 try:
                     rodadas[(a, m)] = c3s_ler(arq, a, m)

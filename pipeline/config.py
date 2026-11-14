@@ -41,7 +41,7 @@ CHIRPS_DIARIO_PRELIM = CHIRPS + "daily/prelim/sat/"   # diário preliminar (desa
 # ----------------------------------------------------------------------------- temperatura: ERA5-Land (Copernicus CDS)
 FUSO_ERA5 = "utc-04:00"                # dia local (MT/MS) para Tmax e Tmin diárias
 ERA5_ATRASO_DIAS = 7                   # o ERA5-Land costuma sair com ~5 dias de atraso; pedimos até hoje - 7
-ERA5_PEDIDOS_SIMULTANEOS = 4           # pedidos em paralelo ao Copernicus (acelera a primeira carga)
+ERA5_PEDIDOS_SIMULTANEOS = 8           # anos baixados em paralelo (cada um = 12 pedidos de 1 mês ao Copernicus)
 
 # ----------------------------------------------------------------------------- previsão sazonal: C3S
 # (centro, sistema, nome). Os números de sistema mudam com o tempo: confira no CDS se um modelo falhar.

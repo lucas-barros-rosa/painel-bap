@@ -292,10 +292,15 @@ def _era5_pedido(estat, ano, meses, dias, destino):
     """Faz um pedido ao CDS e devolve (valores °C, datas)."""
     import cdsapi, xarray as xr
     area = [round(float(v), 2) for v in (G10["lats"].max(), G10["lons"].min(), G10["lats"].min(), G10["lons"].max())]
-    cdsapi.Client(quiet=True).retrieve("derived-era5-land-daily-statistics", {
-        "variable": ["2m_temperature"], "year": str(ano), "month": [f"{m:02d}" for m in meses],
-        "day": [f"{d:02d}" for d in dias], "daily_statistic": estat,
-        "time_zone": C.FUSO_ERA5, "frequency": "1_hourly", "area": area}, str(destino))
+    try:
+        cdsapi.Client(quiet=True).retrieve("derived-era5-land-daily-statistics", {
+            "variable": ["2m_temperature"], "year": str(ano), "month": [f"{m:02d}" for m in meses],
+            "day": [f"{d:02d}" for d in dias], "daily_statistic": estat,
+            "time_zone": C.FUSO_ERA5, "frequency": "1_hourly", "area": area}, str(destino))
+    except Exception as e:                                         # noqa — mostra a explicação do Copernicus
+        resp = getattr(e, "response", None)
+        detalhe = (getattr(resp, "text", "") or "")[:300].replace("\n", " ")
+        raise RuntimeError(f"Copernicus recusou {ano}-{meses[0]:02d}: {e} {detalhe}") from e
     if zipfile.is_zipfile(destino):
         with zipfile.ZipFile(destino) as z:
             dados = z.read(next(n for n in z.namelist() if n.endswith(".nc")))
@@ -331,20 +336,15 @@ def era5_diario(estat):
         return [np.datetime64(dt.date(ano, m, d)) for m in meses for d in dias if d <= calendar.monthrange(ano, m)[1]]
 
     def fazer(bloco):
+        # O Copernicus aceita no máximo 1 mês de ERA5-Land por pedido; um ano = 12 pedidos.
         nome, ano, meses, dias = bloco
-        checar_tempo()
-        tmp = pasta / f"{nome}.nc"
-        try:
-            x, d = tentar(lambda: _era5_pedido(estat, ano, meses, dias, tmp), vezes=2, espera=60)
-        except TempoEsgotado:
-            raise
-        except Exception as e:                                     # noqa — pedido grande recusado: mês a mês
-            if len(meses) == 1:
-                raise
-            log(f"   {nome}: pedido anual falhou ({str(e)[:80]}); tentando mês a mês")
-            partes = [tentar(lambda m=m: _era5_pedido(estat, ano, [m], dias, tmp), vezes=3, espera=60) for m in meses]
-            x = np.concatenate([p[0] for p in partes]); d = np.concatenate([p[1] for p in partes])
-        tmp.unlink(missing_ok=True)
+        partes = []
+        for m in meses:
+            checar_tempo()
+            tmp = pasta / f"{nome}_{m:02d}.nc"
+            partes.append(tentar(lambda m=m, tmp=tmp: _era5_pedido(estat, ano, [m], dias, tmp), vezes=3, espera=60))
+            tmp.unlink(missing_ok=True)
+        x = np.concatenate([p[0] for p in partes]); d = np.concatenate([p[1] for p in partes])
         esp = np.array(esperado(ano, meses, dias), dtype="datetime64[D]")
         if len(d) != len(esp) or (d != esp).any():
             raise ValueError(f"ERA5-Land {nome}: esperava {len(esp)} dias, vieram {len(d)}")

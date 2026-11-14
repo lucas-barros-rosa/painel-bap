@@ -59,12 +59,19 @@ def _arquivo_entrada(nome):
     return None
 
 
-def regioes():
-    """Monta as 4 regiões. -> (geojson, mascara 0,05°, mascara 0,1°, descrição para o site)"""
-    arq_geo, arq_m = C.CACHE / "regioes.geojson", C.CACHE / "mascaras.npz"
-    if arq_geo.exists() and arq_m.exists():
+def regioes(construir=False):
+    """As 4 regiões. -> (geojson, mascara 0,05°, mascara 0,1°, descrição para o site)
+    Ficam prontas em pipeline/entrada/ (regioes.geojson e mascaras.npz). Elas são montadas uma vez,
+    no seu computador (python atualizar_dados.py --regioes), porque os servidores do IBGE não
+    respondem a acessos de fora do Brasil, como os do GitHub."""
+    arq_geo, arq_m = C.ENTRADA / "regioes.geojson", C.ENTRADA / "mascaras.npz"
+    if arq_geo.exists() and arq_m.exists() and not construir:
         z = np.load(arq_m)
         return json.load(open(arq_geo, encoding="utf-8")), z["m05"], z["m10"], str(z["desc"])
+    if not construir:
+        sys.exit("Faltam as regiões prontas (pipeline/entrada/regioes.geojson e mascaras.npz).\n"
+                 "No seu computador, na pasta pipeline, rode:  python atualizar_dados.py --regioes\n"
+                 "e depois envie os arquivos para o GitHub.")
     import geopandas as gpd, shapely
     from shapely.geometry import mapping
     from pyproj import Geod
@@ -82,7 +89,7 @@ def regioes():
         pant, desc_p = _uniao(gpd.read_file(arq_p).to_crs(4326)), "Pantanal: limite fornecido pelo autor"
     else:
         bio = gpd.read_file(baixar_arquivo(C.URL_BIOMAS, C.CACHE / "biomas_ibge.zip")).to_crs(4326)
-        col = next((c for c in bio.columns if bio[c].dtype == object
+        col = next((c for c in bio.columns if c != bio.geometry.name
                     and bio[c].astype(str).str.lower().str.contains("pantanal").any()), None)
         if col is None:
             sys.exit(f"Não achei o bioma Pantanal no arquivo do IBGE (colunas: {list(bio.columns)}). "
@@ -470,14 +477,35 @@ def baixar_enso():
 # =============================================================================
 # Rio Paraguai — ANA
 # =============================================================================
+_ANA_OK = None
+
+
+def ana_acessivel():
+    """Testa uma vez se o serviço da ANA responde (ele pode não aceitar acessos de fora do Brasil)."""
+    global _ANA_OK
+    if _ANA_OK is None:
+        import requests
+        try:
+            requests.get("https://telemetriaws1.ana.gov.br/ServiceANA.asmx", timeout=(15, 30))
+            _ANA_OK = True
+        except Exception as e:                                     # noqa
+            log(f"   ANA não respondeu ({type(e).__name__}); uso a última série guardada no cache")
+            _ANA_OK = False
+    return _ANA_OK
+
+
 def ana_serie(codigo):
-    """Nível diário (cm). Histórico (HidroSerieHistorica) + telemetria recente. -> {data ISO: cm}"""
+    """Nível diário (cm). Histórico (HidroSerieHistorica) + telemetria recente, somados à série guardada
+    no cache das execuções anteriores. -> {data ISO: cm}"""
     import requests, xml.etree.ElementTree as ET
     base = "https://telemetriaws1.ana.gov.br/ServiceANA.asmx/"
-    serie = {}
+    arq_cache = C.CACHE / f"ana_{codigo}.json"
+    serie = json.load(open(arq_cache)) if arq_cache.exists() else {}
     hoje = dt.date.today()
+    if not ana_acessivel():
+        return _ana_csv(codigo, serie)
     try:
-        r = requests.get(base + "HidroSerieHistorica", timeout=180, params={
+        r = requests.get(base + "HidroSerieHistorica", timeout=(15, 180), params={
             "codEstacao": codigo, "dataInicio": "01/01/1970", "dataFim": hoje.strftime("%d/%m/%Y"),
             "tipoDados": "1", "nivelConsistencia": ""})
         r.raise_for_status()
@@ -502,7 +530,7 @@ def ana_serie(codigo):
         ini = hoje - dt.timedelta(days=400)
         while ini < hoje:
             fim = min(ini + dt.timedelta(days=60), hoje)
-            r = requests.get(base + "DadosHidrometeorologicos", timeout=180, params={
+            r = requests.get(base + "DadosHidrometeorologicos", timeout=(15, 180), params={
                 "codEstacao": codigo, "dataInicio": ini.strftime("%d/%m/%Y"), "dataFim": fim.strftime("%d/%m/%Y")})
             r.raise_for_status()
             dia_vals = {}
@@ -517,13 +545,30 @@ def ana_serie(codigo):
             ini = fim + dt.timedelta(days=1)
     except Exception as e:                                             # noqa
         log(f"   ANA telemetria {codigo}: {str(e)[:120]}")
-    # arquivo manual opcional: entrada/nivel_<codigo>.csv  (colunas: data,nivel_cm) — tem prioridade
+    if serie:
+        C.CACHE.mkdir(exist_ok=True)
+        json.dump(serie, open(arq_cache, "w"))
+    return _ana_csv(codigo, serie)
+
+
+def _ana_csv(codigo, serie):
+    """entrada/nivel_<codigo>.csv (colunas: data,nivel_cm): completa os dias que a ANA não entregou."""
     arq = C.ENTRADA / f"nivel_{codigo}.csv"
     if arq.exists():
         for linha in open(arq, encoding="utf-8").read().splitlines()[1:]:
             p = linha.replace(";", ",").split(",")
             if len(p) >= 2 and p[1].strip():
-                serie[p[0].strip()[:10]] = float(p[1])
+                serie.setdefault(p[0].strip()[:10], float(p[1]))     # completa só os dias que faltam
     return serie
+
+
+def gravar_nivel_csv(codigo, serie):
+    """Grava a série em entrada/nivel_<codigo>.csv (usado pelo GitHub quando a ANA não responde a ele)."""
+    arq = C.ENTRADA / f"nivel_{codigo}.csv"
+    with open(arq, "w", encoding="utf-8") as f:
+        f.write("data,nivel_cm\n")
+        for d in sorted(serie):
+            f.write(f"{d},{serie[d]:g}\n")
+    return arq
 
 

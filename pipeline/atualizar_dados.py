@@ -26,12 +26,35 @@ def principal():
     ap.add_argument("--demo", action="store_true", help="gera dados simulados (não usa internet)")
     ap.add_argument("--sem-previsao", action="store_true", help="não baixa as previsões sazonais")
     ap.add_argument("--sem-rio", action="store_true", help="não baixa o nível do rio")
+    ap.add_argument("--regioes", action="store_true",
+                    help="só monta as regiões (BAP x MT/MS x Pantanal) e grava em entrada/; rode no seu computador")
+    ap.add_argument("--rio", action="store_true",
+                    help="só baixa o nível do rio da ANA e grava CSVs em entrada/; rode no seu computador")
     args = ap.parse_args()
     if args.demo:
         import demo
         return demo.rodar()
 
     C.CACHE.mkdir(exist_ok=True)
+    if args.regioes:
+        fontes.regioes(construir=True)
+        log("Regiões gravadas em pipeline/entrada/ (regioes.geojson e mascaras.npz). Agora envie para o GitHub.")
+        return 0
+    if args.rio:
+        ok = 0
+        for c, n in C.ESTACOES_RIO:
+            serie = fontes.ana_serie(c)
+            if serie:
+                fontes.gravar_nivel_csv(c, serie); ok += 1
+                ult = max(serie)
+                log(f"   {n}: {len(serie)} dias, último {ult} = {serie[ult]:g} cm")
+            else:
+                log(f"   {n}: sem dados")
+        if not ok:
+            log("A ANA não respondeu. Tente de novo mais tarde.")
+            return 1
+        log("Níveis gravados em pipeline/entrada/nivel_*.csv. Agora envie para o GitHub.")
+        return 0
     try:
         geo, m05, m10, desc = fontes.regioes()
 

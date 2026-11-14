@@ -13,7 +13,18 @@ pipeline/                 scripts em Python que baixam os dados e preenchem site
   demo.py                 dados simulados para testar
   entrada/bap.geojson     o seu limite da BAP
 .github/workflows/        a automação que roda no GitHub duas vezes por semana
+enviar_para_github.bat    envia suas alterações para o GitHub (git add + commit + push)
+testar_no_computador.bat  gera dados simulados e abre o site no navegador
+preparar_regioes.bat      monta as regiões com dados do IBGE (rodar uma vez, no seu computador)
+atualizar_rio.bat         baixa o nível do rio da ANA no seu computador e envia ao GitHub
+agendar_rio.bat           agenda o atualizar_rio.bat para segundas e quintas, 05:30 (rodar uma vez)
 ```
+
+## Quando receber uma versão nova do Claude
+
+1. Descompacte o zip por cima desta pasta, substituindo os arquivos.
+2. (Opcional) `.\testar_no_computador.bat` para ver o resultado.
+3. `.\enviar_para_github.bat` para publicar.
 
 O passo a passo de instalação e publicação está na conversa com o Claude. Resumo:
 
@@ -46,4 +57,6 @@ O passo a passo de instalação e publicação está na conversa com o Claude. R
 2. **CHIRPS v3**: se mudar o endereço, ajuste `CHIRPS_MENSAL` e `CHIRPS_DIARIO_*` em `config.py`.
 3. **ERA5-Land**: se o Copernicus recusar o pedido de um ano inteiro, o script tenta mês a mês.
 4. **C3S**: os números de sistema em `C3S_MODELOS` mudam com o tempo; se um falhar, o script segue com o outro.
-5. **ANA**: se o serviço não responder, a aba do rio fica vazia; dá para usar CSV em `pipeline/entrada/nivel_<codigo>.csv`.
+5. **ANA e IBGE**: não respondem aos servidores do GitHub (fora do Brasil). Por isso as regiões são montadas
+   uma vez no seu computador (`preparar_regioes.bat`) e o nível do rio é baixado no seu computador
+   (`atualizar_rio.bat`, agendado com `agendar_rio.bat`) e enviado como CSV em `pipeline/entrada/`.

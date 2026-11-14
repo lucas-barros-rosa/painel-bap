@@ -55,7 +55,7 @@ O passo a passo de instalação e publicação está na conversa com o Claude. R
 
 1. **Áreas das regiões** impressas no log: a soma deve ficar perto de 363 mil km².
 2. **CHIRPS v3**: se mudar o endereço, ajuste `CHIRPS_MENSAL` e `CHIRPS_DIARIO_*` em `config.py`.
-3. **ERA5-Land**: se o Copernicus recusar o pedido de um ano inteiro, o script tenta mês a mês.
+3. **Temperatura**: ERA5-Land horário lido direto do "ARCO Data Lake" do ECMWF (arquivos Zarr, sem a fila do CDS; usa a mesma chave). Só os dias que o Zarr ainda não tem são pedidos ao CDS, um por vez; se a fila estiver cheia, o script espera e tenta de novo.
 4. **C3S**: os números de sistema em `C3S_MODELOS` mudam com o tempo; se um falhar, o script segue com o outro.
 5. **ANA e IBGE**: não respondem aos servidores do GitHub (fora do Brasil). Por isso as regiões são montadas
    uma vez no seu computador (`preparar_regioes.bat`) e o nível do rio é baixado no seu computador

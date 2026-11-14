@@ -32,7 +32,7 @@ def tentar(f, vezes=4, espera=20):
         except Exception as e:                       # noqa
             if i == vezes - 1:
                 raise
-            log(f"   falhou ({type(e).__name__}: {str(e)[:120]}); nova tentativa em {espera}s")
+            log(f"   falhou ({type(e).__name__}: {str(e)[:600]}); nova tentativa em {espera}s")
             time.sleep(espera)
 
 
@@ -43,7 +43,7 @@ def grade(d):
     return {"d": d, "nx": nx, "ny": ny, "lons": lons, "lats": lats, "lon0": C.LON0, "lat0": C.LAT0}
 
 
-G05, G10 = grade(0.05), grade(0.1)                 # CHIRPS (0,05°) e ERA5-Land (0,1°)
+G05, G10 = grade(0.05), grade(0.1)                 # CHIRPS (0,05°) e temperatura (0,1°)
 
 
 def arred(a, casas=1):

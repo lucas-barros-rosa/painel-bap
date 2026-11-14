@@ -276,93 +276,185 @@ def chirps_diario(n_dias=120):
 
 
 # =============================================================================
-# Temperatura: ERA5-Land (Copernicus CDS)
+# Temperatura: ERA5-Land horário, lido do "ARCO Data Lake" do ECMWF (Zarr, sem fila)
 # =============================================================================
-def _para_grade(da, g):
-    """DataArray[tempo, lat, lon] -> numpy[tempo, ny, nx] na grade g (vizinho mais próximo)."""
-    acha = lambda ops: next(d for d in da.dims if d.lower() in ops)
-    lat, lon = acha(("latitude", "lat")), acha(("longitude", "lon"))
-    tempo = next(d for d in da.dims if d not in (lat, lon))
-    da = da.transpose(tempo, lat, lon).sortby(lat).sortby(lon)
-    da = da.sel({lat: g["lats"], lon: g["lons"]}, method="nearest", tolerance=g["d"] * 0.6)
-    return np.asarray(da.values, dtype="float32"), np.asarray(da[tempo].values).astype("datetime64[D]")
+def _chave_cds():
+    """Chave do Copernicus: variável CDSAPI_KEY (GitHub) ou arquivo ~/.cdsapirc (seu computador)."""
+    import os
+    k = os.environ.get("CDSAPI_KEY")
+    arq = Path.home() / ".cdsapirc"
+    if not k and arq.exists():
+        for linha in arq.read_text().splitlines():
+            if linha.strip().startswith("key:"):
+                k = linha.split(":", 1)[1].strip()
+    if not k:
+        raise RuntimeError("chave do Copernicus não encontrada (CDSAPI_KEY ou ~/.cdsapirc)")
+    return k
 
 
-def _era5_pedido(estat, ano, meses, dias, destino):
-    """Faz um pedido ao CDS e devolve (valores °C, datas)."""
+def abrir_era5land_arco():
+    """Abre o Zarr do ERA5-Land (só lê o índice; os dados vêm quando pedidos)."""
+    import xarray as xr
+    return xr.open_zarr(C.ERA5L_ARCO, consolidated=True, chunks=None,
+                        storage_options={"headers": {"Authorization": f"Bearer {_chave_cds()}"}})
+
+
+def _recorte_arco(ds):
+    """Índices do retângulo da BAP no Zarr e a ordem para cair na grade G10."""
+    lat, lon = ds["latitude"].values, ds["longitude"].values
+    iy = np.array([int(np.argmin(np.abs(lat - v))) for v in G10["lats"]])
+    ix = np.array([int(np.argmin(np.abs(lon - v))) for v in G10["lons"]])
+    if np.abs(lat[iy] - G10["lats"]).max() > 0.03 or np.abs(lon[ix] - G10["lons"]).max() > 0.03:
+        raise ValueError("a grade do ERA5-Land no Zarr não bate com a grade do painel")
+    y0, x0 = iy.min(), ix.min()
+    return slice(y0, iy.max() + 1), slice(x0, ix.max() + 1), iy - y0, ix - x0
+
+
+def _diarias(x, t):
+    """Horárias (°C) -> Tmax e Tmin do dia local (UTC-4). Horas que sobram no fim voltam como 'resto'."""
+    local = t + np.timedelta64(C.FUSO_HORAS, "h")
+    hora = (local.astype("datetime64[h]") - local.astype("datetime64[D]")).astype(int)
+    zeros = np.flatnonzero(hora == 0)
+    if not len(zeros):
+        return None, None, None, x, t
+    o = zeros[0]
+    n = (len(t) - o) // 24
+    b = x[o:o + 24 * n].reshape(n, 24, *x.shape[1:])
+    dias = local[o:o + 24 * n:24].astype("datetime64[D]")
+    return b.max(axis=1), b.min(axis=1), dias, x[o + 24 * n:], t[o + 24 * n:]
+
+
+def era5land_arco():
+    """Tmax e Tmin diárias (°C, 0,1°, dia local) de ANO_INICIAL até o último dia completo no Zarr.
+    Baixa em blocos do tamanho dos pedaços do Zarr (~3,9 anos); blocos fechados ficam no cache.
+    -> (tmax[t, ny, nx], tmin[t, ny, nx], datas)"""
+    ds = abrir_era5land_arco()
+    v = ds["t2m"]
+    t = ds["time"].values.astype("datetime64[h]")
+    ch = v.encoding.get("chunks") or v.encoding.get("preferred_chunks", {}).get("time")
+    ct = int(ch[0] if isinstance(ch, (tuple, list)) else (ch or 33792))   # horas por pedaço do Zarr (33792)
+    sy, sx, ry, rx = _recorte_arco(ds)
+    pasta = C.CACHE / "era5land"
+    pasta.mkdir(parents=True, exist_ok=True)
+    i_ini = int(np.searchsorted(t, np.datetime64(f"{C.ANO_INICIAL - 1}-12-31T00", "h")))
+    k0, k1 = i_ini // ct, (len(t) - 1) // ct
+    log(f"   ERA5-Land no Zarr: {str(t[0])[:10]} a {str(t[-1])[:13]}h UTC; {k1 - k0 + 1} blocos de {ct} h")
+    mx, mn, ds_ = [], [], []
+    resto_x, resto_t = None, None
+    for k in range(k0, k1 + 1):
+        i0, i1 = max(k * ct, i_ini), min((k + 1) * ct, len(t))
+        fechado = (k + 1) * ct <= len(t)
+        arq = pasta / f"bloco_{ct}_{k:03d}.npz"
+        if fechado and arq.exists():
+            z = np.load(arq)
+        else:
+            checar_tempo()
+            log(f"   ERA5-Land: baixando {str(t[i0])[:10]} a {str(t[i1 - 1])[:10]}")
+            x = tentar(lambda: v.isel(time=slice(i0, i1), latitude=sy, longitude=sx).values, vezes=3, espera=60)
+            x = x[:, ry][:, :, rx].astype("float32") - 273.15
+            tt = t[i0:i1]
+            if resto_x is not None and len(resto_t):
+                x, tt = np.concatenate([resto_x, x]), np.concatenate([resto_t, tt])
+            if len(tt) > 1 and (np.diff(tt) != np.timedelta64(1, "h")).any():
+                raise ValueError(f"ERA5-Land: horas faltando entre {tt[0]} e {tt[-1]}")
+            a, b, d, rx_, rt_ = _diarias(x, tt)
+            z = dict(tmax=a, tmin=b, d=d, resto_x=rx_, resto_t=rt_)
+            if fechado:
+                np.savez(arq, **z)
+        resto_x, resto_t = z["resto_x"], z["resto_t"]
+        if z["d"] is not None and len(z["d"]):
+            mx.append(z["tmax"]); mn.append(z["tmin"]); ds_.append(z["d"])
+    d = np.concatenate(ds_).astype("datetime64[D]")
+    ok = d >= np.datetime64(f"{C.ANO_INICIAL}-01-01")
+    return np.concatenate(mx)[ok], np.concatenate(mn)[ok], d[ok]
+
+
+# --- dias mais recentes que o Zarr ainda não tem: pedido normal ao CDS, um por vez
+def _era5_pedido(estat, ano, mes, dias, destino):
     import cdsapi, xarray as xr
     area = [round(float(v), 2) for v in (G10["lats"].max(), G10["lons"].min(), G10["lats"].min(), G10["lons"].max())]
-    try:
-        cdsapi.Client(quiet=True).retrieve("derived-era5-land-daily-statistics", {
-            "variable": ["2m_temperature"], "year": str(ano), "month": [f"{m:02d}" for m in meses],
-            "day": [f"{d:02d}" for d in dias], "daily_statistic": estat,
-            "time_zone": C.FUSO_ERA5, "frequency": "1_hourly", "area": area}, str(destino))
-    except Exception as e:                                         # noqa — mostra a explicação do Copernicus
-        resp = getattr(e, "response", None)
-        detalhe = (getattr(resp, "text", "") or "")[:300].replace("\n", " ")
-        raise RuntimeError(f"Copernicus recusou {ano}-{meses[0]:02d}: {e} {detalhe}") from e
+    cdsapi.Client(quiet=True).retrieve("derived-era5-land-daily-statistics", {
+        "variable": ["2m_temperature"], "year": str(ano), "month": [f"{mes:02d}"],
+        "day": [f"{x:02d}" for x in dias], "daily_statistic": estat,
+        "time_zone": C.FUSO_ERA5, "frequency": "1_hourly", "area": area}, str(destino))
     if zipfile.is_zipfile(destino):
         with zipfile.ZipFile(destino) as z:
-            dados = z.read(next(n for n in z.namelist() if n.endswith(".nc")))
-        destino.write_bytes(dados)
+            destino.write_bytes(z.read(next(n for n in z.namelist() if n.endswith(".nc"))))
     ds = xr.open_dataset(destino)
-    v = next(n for n in ds.data_vars if ds[n].ndim >= 3)
-    x, d = _para_grade(ds[v], G10)
-    ds.close()
+    da = ds[next(n for n in ds.data_vars if ds[n].ndim >= 3)]
+    acha = lambda ops: next(x for x in da.dims if x.lower() in ops)
+    la, lo = acha(("latitude", "lat")), acha(("longitude", "lon"))
+    tm = next(x for x in da.dims if x not in (la, lo))
+    da = da.transpose(tm, la, lo).sel({la: G10["lats"], lo: G10["lons"]}, method="nearest", tolerance=0.06)
+    x, d = np.asarray(da.values, "float32") - 273.15, np.asarray(da[tm].values).astype("datetime64[D]")
+    ds.close(); destino.unlink(missing_ok=True)
     o = np.argsort(d)
-    return x[o] - 273.15, d[o]
+    return x[o], d[o]
 
 
-def era5_diario(estat):
-    """Tmax ('daily_maximum') ou Tmin ('daily_minimum') diária, °C, 0,1°, de ANO_INICIAL até ~hoje - 7 dias.
-    -> (x[t, ny, nx], datas)"""
-    hoje = dt.date.today()
-    limite = hoje - dt.timedelta(days=C.ERA5_ATRASO_DIAS)
-    pasta = C.CACHE / "era5"
-    pasta.mkdir(parents=True, exist_ok=True)
-    # blocos: anos passados inteiros; meses completos do ano corrente; o pedaço do mês em curso
-    blocos = []
-    for ano in range(C.ANO_INICIAL, limite.year):
-        blocos.append((f"{estat}_{ano}", ano, list(range(1, 13)), list(range(1, 32))))
-    for m in range(1, limite.month):
-        blocos.append((f"{estat}_{limite.year}_{m:02d}", limite.year, [m], list(range(1, 32))))
-    blocos.append((f"{estat}_{limite.year}_{limite.month:02d}_ate{limite.day:02d}", limite.year, [limite.month],
-                   list(range(1, limite.day + 1))))
-    for velho in pasta.glob(f"{estat}_*_ate*.npz"):                 # pedaços parciais antigos
-        if velho.stem != blocos[-1][0]:
+def era5land_cauda(ultimo):
+    """Dias depois de 'ultimo' (fim do Zarr) até hoje - ERA5_ATRASO_DIAS, pelo CDS (no máximo alguns meses).
+    Se a fila do Copernicus não andar, devolve o que tiver; o resto entra numa próxima execução."""
+    import time
+    fim = np.datetime64(dt.date.today() - dt.timedelta(days=C.ERA5_ATRASO_DIAS))
+    if fim <= ultimo:
+        return None
+    pasta = C.CACHE / "era5land"
+    datas = np.arange(ultimo + 1, fim + 1)
+    meses = sorted({(int(str(x)[:4]), int(str(x)[5:7])) for x in datas})[-C.ERA5_CAUDA_MESES_MAX:]
+    mx, mn, dd = [], [], []
+    for ano, mes in meses:
+        dias = [int(str(x)[8:]) for x in datas if (int(str(x)[:4]), int(str(x)[5:7])) == (ano, mes)]
+        arq = pasta / f"cds_{ano}{mes:02d}_{dias[0]:02d}-{dias[-1]:02d}.npz"
+        if not arq.exists():
+            par = {}
+            for estat in ("daily_maximum", "daily_minimum"):
+                for vez in range(C.CDS_ESPERAS_FILA + 1):
+                    checar_tempo()
+                    try:
+                        par[estat] = _era5_pedido(estat, ano, mes, dias, pasta / f"tmp_{estat}.nc")
+                        break
+                    except TempoEsgotado:
+                        raise
+                    except Exception as e:                         # noqa
+                        if _fila_cheia(e) and vez < C.CDS_ESPERAS_FILA:
+                            log(f"   Copernicus com fila cheia; espero {C.CDS_ESPERA_FILA_MIN} min")
+                            time.sleep(C.CDS_ESPERA_FILA_MIN * 60)
+                            continue
+                        log(f"   ERA5-Land recente {ano}-{mes:02d} ficou para depois: {str(e)[:200]}")
+                        break
+            if len(par) < 2 or len(par["daily_maximum"][1]) != len(par["daily_minimum"][1]):
+                break
+            for velho in pasta.glob(f"cds_{ano}{mes:02d}_*.npz"):    # versão anterior, mais curta, deste mês
+                velho.unlink()
+            np.savez(arq, tmax=par["daily_maximum"][0], tmin=par["daily_minimum"][0], d=par["daily_maximum"][1])
+        z = np.load(arq)
+        mx.append(z["tmax"]); mn.append(z["tmin"]); dd.append(z["d"])
+    for velho in pasta.glob("cds_*.npz"):                          # pedaços que o Zarr já cobre
+        if np.datetime64(f"{velho.stem[4:8]}-{velho.stem[8:10]}-{velho.stem[-2:]}") <= ultimo:
             velho.unlink()
+    if not dd:
+        return None
+    return np.concatenate(mx), np.concatenate(mn), np.concatenate(dd).astype("datetime64[D]")
 
-    def esperado(ano, meses, dias):
-        return [np.datetime64(dt.date(ano, m, d)) for m in meses for d in dias if d <= calendar.monthrange(ano, m)[1]]
 
-    def fazer(bloco):
-        # O Copernicus aceita no máximo 1 mês de ERA5-Land por pedido; um ano = 12 pedidos.
-        nome, ano, meses, dias = bloco
-        partes = []
-        for m in meses:
-            checar_tempo()
-            tmp = pasta / f"{nome}_{m:02d}.nc"
-            partes.append(tentar(lambda m=m, tmp=tmp: _era5_pedido(estat, ano, [m], dias, tmp), vezes=3, espera=60))
-            tmp.unlink(missing_ok=True)
-        x = np.concatenate([p[0] for p in partes]); d = np.concatenate([p[1] for p in partes])
-        esp = np.array(esperado(ano, meses, dias), dtype="datetime64[D]")
-        if len(d) != len(esp) or (d != esp).any():
-            raise ValueError(f"ERA5-Land {nome}: esperava {len(esp)} dias, vieram {len(d)}")
-        np.savez(pasta / f"{nome}.npz", x=x.astype("float32"), d=d)
-        return nome
-
-    faltam = [b for b in blocos if not (pasta / f"{b[0]}.npz").exists()]
-    if faltam:
-        log(f"   ERA5-Land {estat}: {len(faltam)} pedidos ao Copernicus (fila; a primeira carga demora)")
-        with ThreadPoolExecutor(max_workers=C.ERA5_PEDIDOS_SIMULTANEOS) as ex:
-            futuros = {ex.submit(fazer, b): b for b in faltam}
-            for f in as_completed(futuros):
-                log(f"   ERA5-Land pronto: {f.result()}")
-    xs, ds = [], []
-    for nome, *_ in blocos:
-        z = np.load(pasta / f"{nome}.npz")
-        xs.append(z["x"]); ds.append(z["d"])
-    return np.concatenate(xs), np.concatenate(ds).astype("datetime64[D]")
+def temperatura_diaria():
+    """Junta o Zarr (histórico) com os dias recentes do CDS. -> (tmax, tmin, datas)"""
+    tmax, tmin, d = era5land_arco()
+    log(f"   ERA5-Land (Zarr): {d[0]} a {d[-1]}")
+    try:
+        cauda = era5land_cauda(d[-1])
+    except TempoEsgotado:
+        raise
+    except Exception as e:                                         # noqa
+        log(f"   dias recentes do ERA5-Land indisponíveis: {str(e)[:200]}")
+        cauda = None
+    if cauda:
+        ok = cauda[2] > d[-1]
+        tmax, tmin = np.concatenate([tmax, cauda[0][ok]]), np.concatenate([tmin, cauda[1][ok]])
+        d = np.concatenate([d, cauda[2][ok]])
+        log(f"   + dias recentes pelo CDS até {d[-1]}")
+    return tmax, tmin, d
 
 
 # =============================================================================
@@ -402,25 +494,43 @@ def c3s_ler(arq, ano, mes):
             "p": np.asarray(p.values, float) * 1000.0 * seg[None, :, None, None]}      # m/s -> mm/mês
 
 
+def _fila_cheia(e):
+    """True se o Copernicus recusou porque já há pedidos demais na fila desta conta."""
+    resp = getattr(e, "response", None)
+    t = f"{e} {getattr(resp, 'text', '') or ''}".lower()
+    return "queued requests" in t or "request data sequentially" in t
+
+
 def c3s_baixar(centro, sistema, ano, mes):
-    import cdsapi
+    import cdsapi, time
     arq = C.CACHE / f"c3s_{centro}_{sistema}_{ano}{mes:02d}.nc"
     if arq.exists():
         return arq
     cliente = cdsapi.Client(quiet=True)
     for tipo in ("monthly_mean", "ensemble_mean"):                    # membros; se não houver, média do conjunto
-        try:
-            cliente.retrieve("seasonal-postprocessed-single-levels", {
-                "originating_centre": centro, "system": sistema,
-                "variable": ["2m_temperature_anomaly", "total_precipitation_anomaly"],
-                "product_type": [tipo], "year": [str(ano)], "month": [f"{mes:02d}"],
-                "leadtime_month": ["1", "2", "3", "4", "5", "6"],
-                "data_format": "netcdf", "area": C.C3S_AREA}, str(arq))
-            return arq
-        except Exception as e:                                         # noqa
-            log(f"   C3S {centro} {ano}-{mes:02d} ({tipo}): {str(e)[:150]}")
-            if arq.exists():
-                arq.unlink()
+        for vez in range(C.CDS_ESPERAS_FILA + 1):
+            checar_tempo()
+            try:
+                cliente.retrieve("seasonal-postprocessed-single-levels", {
+                    "originating_centre": centro, "system": sistema,
+                    "variable": ["2m_temperature_anomaly", "total_precipitation_anomaly"],
+                    "product_type": [tipo], "year": [str(ano)], "month": [f"{mes:02d}"],
+                    "leadtime_month": ["1", "2", "3", "4", "5", "6"],
+                    "data_format": "netcdf", "area": C.C3S_AREA}, str(arq))
+                return arq
+            except TempoEsgotado:
+                raise
+            except Exception as e:                                     # noqa
+                if arq.exists():
+                    arq.unlink()
+                if _fila_cheia(e) and vez < C.CDS_ESPERAS_FILA:
+                    log(f"   Copernicus com fila cheia nesta conta; espero {C.CDS_ESPERA_FILA_MIN} min e tento de novo")
+                    time.sleep(C.CDS_ESPERA_FILA_MIN * 60)
+                    continue
+                log(f"   C3S {centro} {ano}-{mes:02d} ({tipo}): {str(e)[:300]}")
+                if _fila_cheia(e):
+                    return None                                        # fica para a próxima execução
+                break                                                  # outro erro: tenta o outro tipo
     return None
 
 

@@ -38,10 +38,14 @@ CHIRPS_MENSAL = CHIRPS + "monthly/global/tifs/chirps-v3.0.{a}.{m:02d}.tif"
 CHIRPS_DIARIO_FINAL = CHIRPS + "daily/final/rnl/"     # diário final (desagregado com ERA5)
 CHIRPS_DIARIO_PRELIM = CHIRPS + "daily/prelim/sat/"   # diário preliminar (desagregado com IMERG)
 
-# ----------------------------------------------------------------------------- temperatura: ERA5-Land (Copernicus CDS)
-FUSO_ERA5 = "utc-04:00"                # dia local (MT/MS) para Tmax e Tmin diárias
-ERA5_ATRASO_DIAS = 7                   # o ERA5-Land costuma sair com ~5 dias de atraso; pedimos até hoje - 7
-ERA5_PEDIDOS_SIMULTANEOS = 8           # anos baixados em paralelo (cada um = 12 pedidos de 1 mês ao Copernicus)
+# ----------------------------------------------------------------------------- temperatura: ERA5-Land (ECMWF)
+# Histórico: ERA5-Land horário no "ARCO Data Lake" do ECMWF (Zarr lido direto, sem a fila do CDS; mesma chave).
+ERA5L_ARCO = ("https://arco.datastores.ecmwf.int/cadl-arco-geo-007/arco/reanalysis_era5_land/"
+              "sfc-2m-temperature/geoChunked.zarr")
+FUSO_HORAS = -4                        # dia local de MT/MS (UTC-4) para Tmax e Tmin diárias
+FUSO_ERA5 = "utc-04:00"                # o mesmo, no formato do CDS (dias recentes)
+ERA5_ATRASO_DIAS = 7                   # o ERA5-Land sai com ~5 dias de atraso; pedimos até hoje - 7
+ERA5_CAUDA_MESES_MAX = 3               # no máximo tantos meses recentes pedidos ao CDS (se o Zarr atrasar)
 
 # ----------------------------------------------------------------------------- previsão sazonal: C3S
 # (centro, sistema, nome). Os números de sistema mudam com o tempo: confira no CDS se um modelo falhar.
@@ -51,6 +55,8 @@ C3S_MODELOS = [
 ]
 VERIF_INICIO = (2026, 1)               # primeira emissão usada em "Previsto × observado"
 C3S_AREA = [-13, -61, -23, -52]        # N, O, S, L (graus inteiros; grade de 1°)
+CDS_ESPERA_FILA_MIN = 10              # se o Copernicus disser "fila cheia", espera estes minutos…
+CDS_ESPERAS_FILA = 6                  # …no máximo estas vezes por pedido (depois fica para a próxima execução)
 
 # ----------------------------------------------------------------------------- El Niño (NOAA/CPC)
 URL_RONI = "https://www.cpc.ncep.noaa.gov/data/indices/RONI.ascii.txt"   # índice oficial desde fev/2026

@@ -15,6 +15,7 @@ Arquivos do pipeline:
     saida.py           monta e grava os arquivos que o site lê
 """
 import argparse, sys
+import numpy as np
 import config as C
 import fontes
 from comum import TempoEsgotado, log
@@ -71,11 +72,8 @@ def principal():
         if chuva_diaria and chuva_diaria[0] is None:
             chuva_diaria = None
 
-        log("Temperatura diária (ERA5-Land, Copernicus)…")
-        tmax, datas = fontes.era5_diario("daily_maximum")
-        tmin, datas_n = fontes.era5_diario("daily_minimum")
-        if len(datas) != len(datas_n) or (datas != datas_n).any():
-            sys.exit("Tmax e Tmin do ERA5-Land vieram com datas diferentes; rode de novo.")
+        log("Temperatura diária (ERA5-Land, ECMWF)…")
+        tmax, tmin, datas = fontes.temperatura_diaria()
 
         previsoes = None
         if not args.sem_previsao:

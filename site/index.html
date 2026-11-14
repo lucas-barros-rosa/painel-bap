@@ -175,7 +175,7 @@
         <li><strong>Regiões.</strong> <span id="txt-regioes">Bacia do Alto Paraguai no Brasil, dividida em planalto e Pantanal, norte (MT) e sul (MS).</span></li>
         <li><strong>Chuva.</strong> <span id="txt-chuva">CHIRPS v3, 0,05°</span>, que combina estimativas de satélite com pluviômetros (Funk et al., 2026). Preferido à chuva do ERA5 porque, na reanálise, a precipitação vem do modelo e não é assimilada de observações, com os maiores erros nos trópicos (Lavers et al., 2022). O CHIRPS foi validado em Mato Grosso contra 154 pluviômetros, com bom desempenho em escala mensal (Uliana et al., 2024).</li>
         <li><strong>Chuva dos últimos dias.</strong> CHIRPS v3 diário: versão final quando disponível e preliminar nos dias mais recentes. A normal de cada janela de 30 e 90 dias é obtida das médias mensais de 1991–2020 por harmônicos que preservam as médias mensais (Epstein, 1991).</li>
-        <li><strong>Temperatura.</strong> ERA5-Land, 0,1°, máximas e mínimas diárias em hora local (Muñoz-Sabater et al., 2021). A média mensal é (Tmax + Tmin)/2.</li>
+        <li><strong>Temperatura.</strong> ERA5-Land, 0,1°, temperatura horária a 2 m, da qual se tiram as máximas e mínimas de cada dia em hora local, UTC−4 (Muñoz-Sabater et al., 2021). A máxima é a variável principal, por ser a mais ligada à secura do ar e ao fogo no Pantanal (Libonati et al., 2022); a média mensal é (Tmax + Tmin)/2.</li>
         <li><strong>Anomalias.</strong> Diferença em relação à normal 1991–2020 (WMO, 2017).</li>
         <li><strong>SPI.</strong> Índice de precipitação padronizado em 1, 3, 6 e 12 meses, distribuição gama (McKee et al., 1993; Thom, 1958).</li>
         <li><strong>SPEI.</strong> Índice padronizado de precipitação-evapotranspiração, distribuição log-logística (Vicente-Serrano et al., 2010), com evapotranspiração de referência de Hargreaves &amp; Samani (1985).</li>
@@ -195,6 +195,7 @@
         <li>Johnson, S. J. et al. (2019). SEAS5: the new ECMWF seasonal forecast system. <em>Geoscientific Model Development</em>, 12, 1087–1117.</li>
         <li>L'Heureux, M. L. et al. (2024). A relative sea surface temperature index for classifying ENSO events in a changing climate. <em>Journal of Climate</em>. doi:10.1175/JCLI-D-23-0406.1</li>
         <li>Lavers, D. A., Simmons, A., Vamborg, F. &amp; Rodwell, M. J. (2022). An evaluation of ERA5 precipitation for climate monitoring. <em>Quarterly Journal of the Royal Meteorological Society</em>, 148, 3152–3165.</li>
+        <li>Libonati, R. et al. (2022). Assessing the role of compound drought and heatwave events on unprecedented 2020 wildfires in the Pantanal. <em>Environmental Research Letters</em>, 17, 015005.</li>
         <li>McKee, T. B., Doesken, N. J. &amp; Kleist, J. (1993). The relationship of drought frequency and duration to time scales. <em>8th Conference on Applied Climatology</em>, AMS.</li>
         <li>Muñoz-Sabater, J. et al. (2021). ERA5-Land: a state-of-the-art global reanalysis dataset for land applications. <em>Earth System Science Data</em>, 13, 4349–4383.</li>
         <li>Perkins, S. E. &amp; Alexander, L. V. (2013). On the measurement of heat waves. <em>Journal of Climate</em>, 26(13), 4500–4517.</li>

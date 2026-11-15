@@ -168,7 +168,8 @@ def gerar_saida(P, anos_p, meses_p, tmax, tmin, datas, m05, m10, geo, previsoes=
         import fogo as fg
         log("Calculando focos de calor…")
         fogo_json["focos"], mens = fg.focos_json(*fogo["focos"], m05, REGIOES, rot)
-        a0, a1 = C.FOCOS_REF
+        rec = fogo_json["focos"]["periodos"][1]
+        a0, a1 = rec["a0"], rec["a1"]                              # média mensal do regime recente
         for r in REGIOES:
             v = np.array([np.nan if x is None else x for x in mens[r["id"]]], float)
             series[r["id"]]["focos"] = arred(v, 0)

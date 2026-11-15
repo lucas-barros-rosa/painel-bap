@@ -110,6 +110,8 @@ h2 .sub{margin-left:6px}
 .tile .val small{font-size:13px;font-weight:500;color:var(--tinta2)}
 .tile .det{font-size:12.5px;color:var(--tinta2);line-height:1.45}
 .tile .chip{align-self:center}
+.tile .l2{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;color:var(--tinta2);border-top:1px solid var(--borda);padding-top:4px;margin-top:4px}
+.tile .l2 b{color:var(--tinta);font-weight:600;white-space:nowrap}
 .tag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#7a4b00;background:#fde6b0;border-radius:4px;padding:1px 6px;margin-right:5px;vertical-align:1px}
 .barra{height:5px;border-radius:3px;background:var(--meio);margin:8px 0 6px;position:relative;overflow:hidden}
 .barra i{position:absolute;left:0;top:0;bottom:0;border-radius:3px}

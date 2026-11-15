@@ -13,3 +13,5 @@ pyproj
 zarr>=3.0           # leitura do ERA5-Land no formato Zarr (ARCO do ECMWF)
 fsspec>=2024.6      # acesso a arquivos pela internet (usado pelo zarr)
 aiohttp>=3.9        # conexões HTTP do fsspec
+cfgrib>=0.9.14      # leitura de arquivos GRIB (FWI do Copernicus)
+eccodes>=2.38       # biblioteca do ECMWF usada pelo cfgrib (já vem compilada no pip)

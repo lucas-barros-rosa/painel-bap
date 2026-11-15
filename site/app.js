@@ -538,8 +538,9 @@ function seriesDesenhar() {
     series = [{ nome: v[1].split(':')[0].split(' (')[0], tipo: 'barra', y: corta(s[v[0]]), cor: pos, corNeg: neg }]; leg = [[rn, neg, 'caixa'], [rp, pos, 'caixa']];
   } else {
     const cor = v[0] === 'calor' || v[0] === 'focos' || v[0] === 'fwi' ? COR.calor : css('--agua');
-    series = [{ nome: 'observado', tipo: 'barra', y: corta(s[v[0]]), cor: cor }, { nome: 'média 1991–2020', tipo: 'linha', y: corta(s[v[5]]), cor: css('--tinta2'), esp: 2 }];
-    leg = [['observado', cor, 'caixa'], ['média 1991–2020', css('--tinta2')]];
+    const Pf = D.fogo && D.fogo.focos && D.fogo.focos.periodos, rotMed = v[0] === 'focos' && Pf ? 'média do regime recente (' + Pf[1].a0 + '–' + Pf[1].a1 + ')' : 'média 1991–2020';
+    series = [{ nome: 'observado', tipo: 'barra', y: corta(s[v[0]]), cor: cor }, { nome: rotMed, tipo: 'linha', y: corta(s[v[5]]), cor: css('--tinta2'), esp: 2 }];
+    leg = [['observado', cor, 'caixa'], [rotMed, css('--tinta2')]];
   }
   const eventos = eventosNino(x);
   if (eventos.length) leg.push(itemEvento());
@@ -616,12 +617,18 @@ function fogoDesenhar() {
   const seg = $('fogo-reg');
   seg.innerHTML = D.meta.regioes.map(r => '<button type="button" data-r="' + r.id + '"' + (r.id === regFogo ? ' class="ativo"' : '') + '>' + (NOMES[r.id] || [0, r.nome])[1] + '</button>').join('');
   seg.querySelectorAll('button').forEach(b => b.onclick = () => { regFogo = b.dataset.r; fogoDesenhar(); });
+  // aviso se o FWI estiver parado (o Copernicus suspendeu as atualizações em 16/11/2026 para uma migração interna)
+  const atrasoFwi = Fw ? Math.round((Date.now() - new Date(Fw.ultimo + 'T12:00:00Z')) / 864e5) : 0;
+  $('fwi-aviso').hidden = !(Fw && atrasoFwi > 10);
+  if (Fw && atrasoFwi > 10) $('fwi-aviso').innerHTML = '<strong>Perigo de fogo desatualizado:</strong> o último dado do FWI é de ' + fmtDataL(Fw.ultimo) +
+    '. O Copernicus suspendeu temporariamente as atualizações desse índice para uma migração interna (anunciada em novembro de 2026); o painel volta a atualizá-lo assim que os dados forem retomados. Os focos de calor continuam em dia.';
   // cartões
   let t = '';
-  if (Fo) { const r = Fo.regioes[regFogo], dif = r.normal30 > 0 ? (r.ult30 / r.normal30 - 1) * 100 : null, difA = r.normal_ano > 0 ? (r.ano / r.normal_ano - 1) * 100 : null;
-    const comp = d => d == null ? '' : Math.abs(d) < 10 ? 'perto da média' : num(Math.abs(d)) + '% ' + (d > 0 ? 'acima' : 'abaixo') + ' da média';
-    t += '<div class="tile"><div class="rot">Focos nos últimos 30 dias</div><div class="val">' + num(r.ult30) + '<small>focos</small></div><div class="det">Até ' + fmtDataL(Fo.ultimo) + '. Média de ' + Fo.ref + ' para estes 30 dias: ' + num(r.normal30) + ' (' + comp(dif) + ').</div></div>';
-    t += '<div class="tile"><div class="rot">Focos no ano, até agora</div><div class="val">' + num(r.ano) + '<small>focos</small></div><div class="det">Média até esta data: ' + num(r.normal_ano) + ' (' + comp(difA) + '). É o ' + r.posicao_ano + 'º maior total para esta data em ' + r.n_anos + ' anos.</div></div>'; }
+  if (Fo) { const r = Fo.regioes[regFogo], P = Fo.periodos;
+    const comp = (v, ref) => { if (!(ref > 0)) return 'sem referência'; const d = (v / ref - 1) * 100; return Math.abs(d) < 10 ? 'perto da média' : num(Math.abs(d)) + '% ' + (d > 0 ? 'acima' : 'abaixo'); };
+    const linhas = (v, refs) => P.map(q => '<div class="l2"><span>vs. ' + q.nome + ' (' + q.a0 + '–' + q.a1 + ')</span><b>' + comp(v, refs[q.id]) + '</b></div>').join('');
+    t += '<div class="tile"><div class="rot">Focos nos últimos 30 dias</div><div class="val">' + num(r.ult30) + '<small>focos</small></div><div class="det">Até ' + fmtDataL(Fo.ultimo) + ', comparado com a média dos mesmos 30 dias:</div>' + linhas(r.ult30, r.normal30) + '</div>';
+    t += '<div class="tile"><div class="rot">Focos no ano, até agora</div><div class="val">' + num(r.ano) + '<small>focos</small></div><div class="det">' + r.posicao_ano + 'º maior total para esta data em ' + r.n_anos + ' anos. Comparado com a média até esta data:</div>' + linhas(r.ano, r.normal_ano) + '</div>'; }
   if (Fw) { const r = Fw.regioes[regFogo], cl = classe(r.ultimo, ESC.fwi.q);
     t += '<div class="tile"><div class="rot">Perigo de fogo (FWI) em ' + fmtData(Fw.ultimo) + '</div><div class="val"><i class="chip" style="background:' + ESC.fwi.cores()[cl] + '"></i>' + num(r.ultimo, 1) + '<small>' + ESC.fwi.nomes[cl] + '</small></div>' +
       '<div class="det">' + (r.percentil != null ? 'Mais alto que ' + num(r.percentil) + '% dos dias desta época do ano em ' + Fw.ref + '. ' : '') + r.dias_acima_p90_30 + ' dia(s) entre os 10% mais perigosos nos últimos 30.</div></div>'; }
@@ -645,11 +652,14 @@ function fogoDesenhar() {
     const R = Fo.regioes[regFogo], anos = Object.keys(R.anos).sort(), atual = anos[anos.length - 1];
     if (!fogoAnos) fogoAnos = ['2020', '2024'].filter(a => R.anos[a] && a !== atual);
     const sel = fogoAnos.filter(a => R.anos[a]), mudo = css('--mudo'), ca = css('--nino');
-    const series = [{ nome: 'faixa 10–90%', tipo: 'banda', y: R.clim.p10, y2: R.clim.p90, cor: mudo }, { nome: 'mediana', tipo: 'linha', y: R.clim.p50, cor: mudo, esp: 1.5, traco: '4 3' }];
+    const P = Fo.periodos, corP = [mudo, '#c98a3a'], series = [];
+    P.forEach((q, k) => { const c = R.clim[q.id];
+      series.push({ nome: 'faixa ' + q.nome, tipo: 'banda', y: c.p10, y2: c.p90, cor: corP[k], opac: k ? 0.16 : 0.22 },
+        { nome: 'mediana ' + q.nome, tipo: 'linha', y: c.p50, cor: corP[k], esp: 1.5, traco: '4 3' }); });
     sel.forEach((a, k) => series.push({ nome: a, tipo: 'linha', y: R.anos[a], cor: ANOS_COR[k % ANOS_COR.length], esp: 1.6 }));
     series.push({ nome: atual, tipo: 'linha', y: R.anos[atual], cor: ca, esp: 3 });
     $('fogo-ac-tit').textContent = 'Focos de calor acumulados no ano — ' + nomeReg(regFogo);
-    legenda($('fogo-ac-leg'), [['faixa 10–90% (' + Fo.ref + ')*', mudo, 'caixa'], ['mediana', mudo, 'tracejada'], [atual + ' (ano atual)', ca, 'grossa']]);
+    legenda($('fogo-ac-leg'), Fo.periodos.map((q, k) => [q.nome + ', ' + q.a0 + '–' + q.a1 + ': faixa 10–90%* e mediana', corP[k], 'caixa']).concat([[atual + ' (ano atual)', ca, 'grossa']]));
     const livres = anos.filter(a => a !== atual && !sel.includes(a)).reverse();
     $('fogo-anos').innerHTML = '<span>Comparar com:</span>' + sel.map((a, k) => '<span class="ch"><i style="background:' + ANOS_COR[k % ANOS_COR.length] + '"></i>' + a + '<button type="button" data-a="' + a + '" aria-label="Remover ' + a + '">×</button></span>').join('') +
       (sel.length < 6 ? '<select id="fogo-add" aria-label="Adicionar ano"><option value="">+ adicionar ano</option>' + livres.map(a => '<option>' + a + '</option>').join('') + '</select>' : '');

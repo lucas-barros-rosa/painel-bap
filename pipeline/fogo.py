@@ -37,13 +37,14 @@ def _firms_disponivel(chave):
 
 
 def _firms_bloco(chave, fonte, d0, n):
-    """Focos de n dias (máx. 10) a partir de d0 no retângulo da BAP. -> lista [data, lat, lon]"""
+    """Focos de n dias (máx. FIRMS_DIAS) a partir de d0 no retângulo da BAP. -> lista [data, lat, lon]"""
     import requests
     w, s, e, n_ = C.LON0, C.LAT0 - C.ALT, C.LON0 + C.LARG, C.LAT0
     url = f"{C.FIRMS_API}area/csv/{chave}/{fonte}/{w:.2f},{s:.2f},{e:.2f},{n_:.2f}/{n}/{d0}"
     r = tentar(lambda: requests.get(url, timeout=120), vezes=3, espera=30)
-    r.raise_for_status()
     txt = r.text.strip()
+    if r.status_code != 200:
+        raise RuntimeError(f"FIRMS HTTP {r.status_code}: {txt[:300]}")
     if not txt.lower().startswith("latitude"):
         if not txt:
             return []
@@ -76,7 +77,7 @@ def focos():
     d = np.datetime64(C.FIRMS_INICIO)
     n_novos = 0
     while d <= fim_sp:                                             # arquivo consolidado: blocos de 10 dias, guardados
-        n = int(min(10, (fim_sp - d).astype(int) + 1))
+        n = int(min(C.FIRMS_DIAS, (fim_sp - d).astype(int) + 1))
         arq = pasta / f"sp_{d}_{n}.json"
         if arq.exists():
             regs += json.load(open(arq))
@@ -92,7 +93,7 @@ def focos():
     d = ini_nrt
     while d <= hoje:                                               # tempo quase real: sempre baixado de novo
         checar_tempo()
-        n = int(min(10, (hoje - d).astype(int) + 1))
+        n = int(min(C.FIRMS_DIAS, (hoje - d).astype(int) + 1))
         regs += _firms_bloco(chave, "MODIS_NRT", str(d), n)
         d += np.timedelta64(n, "D")
         time.sleep(0.4)
@@ -121,32 +122,34 @@ def focos_json(datas, lat, lon, ult, m05, regioes, rot_meses):
     dias = np.arange(d0, ult + 1)
     doy = pr.dia_do_ano_365(dias)
     anos_d = dias.astype("datetime64[Y]").astype(int) + 1970
-    a0, a1 = C.FOCOS_REF
-    out, mensal = {"regioes": {}, "ref": f"{a0}–{a1}", "ultimo": str(ult), "inicio": C.FIRMS_INICIO}, {}
+    ano_atual = int(anos_d[-1])
+    periodos = [{"id": "anterior", "nome": "regime anterior", "a0": int(anos_d[0]), "a1": C.FOCOS_RUPTURA - 1},
+                {"id": "recente", "nome": "regime recente", "a0": C.FOCOS_RUPTURA, "a1": ano_atual - 1}]
+    out, mensal = {"regioes": {}, "periodos": periodos, "ultimo": str(ult), "inicio": C.FIRMS_INICIO}, {}
     for r in regioes:
         sel = np.ones(len(cod), bool) if r["cod"] is None else cod == r["cod"]
         diario = np.bincount((datas[sel] - d0).astype(int), minlength=len(dias))[:len(dias)].astype(float)
         # acumulado no ano, por dia do ano (365)
         anos = {}
-        for a in range(int(anos_d[0]), int(anos_d[-1]) + 1):
+        for a in range(int(anos_d[0]), ano_atual + 1):
             s = anos_d == a
             c = np.full(365, np.nan)
             c[doy[s] - 1] = np.cumsum(diario[s])
             anos[a] = c
-        ref = np.array([anos[a] for a in range(a0, a1 + 1) if a in anos])
-        clim = {k: arred(np.nanpercentile(ref, q, axis=0), 0) for k, q in (("p10", 10), ("p50", 50), ("p90", 90))}
-        # últimos 30 dias e ano até hoje, comparados à média do mesmo período em a0–a1
-        u30 = float(diario[-30:].sum())
         d_ult = int(doy[-1])
         janela = [(d_ult - 29 + k - 1) % 365 + 1 for k in range(30)]
-        n30 = np.mean([np.nansum([diario[(anos_d == a) & (doy == q)].sum() for q in janela]) for a in range(a0, a1 + 1)])
-        ano_atual = int(anos_d[-1])
+        clim, normal30, normal_ano = {}, {}, {}
+        for p in periodos:
+            lista = [a for a in range(p["a0"], p["a1"] + 1) if a in anos]
+            ref = np.array([anos[a] for a in lista])
+            clim[p["id"]] = {k: arred(np.nanpercentile(ref, q, axis=0), 0) for k, q in (("p10", 10), ("p50", 50), ("p90", 90))}
+            normal30[p["id"]] = round(float(np.mean([sum(diario[(anos_d == a) & (doy == q)].sum() for q in janela) for a in lista])), 1)
+            normal_ano[p["id"]] = round(float(np.nanmean(ref[:, d_ult - 1])), 1)
         ytd = float(np.nan_to_num(anos[ano_atual][d_ult - 1]))
-        n_ytd = float(np.nanmean(ref[:, d_ult - 1]))
         ordem = sorted(((float(np.nan_to_num(anos[a][d_ult - 1])), a) for a in anos), reverse=True)
         out["regioes"][r["id"]] = {
             "anos": {str(a): arred(c, 0) for a, c in anos.items()}, "clim": clim,
-            "ult30": round(u30), "normal30": round(float(n30), 1), "ano": round(ytd), "normal_ano": round(n_ytd, 1),
+            "ult30": round(float(diario[-30:].sum())), "normal30": normal30, "ano": round(ytd), "normal_ano": normal_ano,
             "posicao_ano": 1 + [a for _, a in ordem].index(ano_atual), "n_anos": len(ordem)}
         # mensal (para as séries e para os El Niños anteriores)
         m = {}
@@ -167,26 +170,37 @@ def _fwi_area():
     return [round(C.LAT0 + 0.25, 2), round(C.LON0 - 0.25, 2), round(C.LAT0 - C.ALT - 0.25, 2), round(C.LON0 + C.LARG + 0.25, 2)]
 
 
-def _fwi_pedido(tipo, ano, meses, destino):
+def _fwi_pedido(tipo, ano, meses, destino, troca=None):
     import cdsapi, xarray as xr
     from fontes import _chave_cds
     cliente = cdsapi.Client(url=C.EWDS_URL, key=_chave_cds(), quiet=True)
-    cliente.retrieve("cems-fire-historical-v1", {
+    pedido = {                                                  # mesmo formato do "Show API request" do EWDS
         "product_type": "reanalysis", "variable": ["fire_weather_index"], "dataset_type": tipo,
         "system_version": ["4_1"], "year": [str(ano)], "month": [f"{m:02d}" for m in meses],
-        "day": [f"{d:02d}" for d in range(1, 32)], "data_format": "netcdf",
-        "area": _fwi_area()}, str(destino))
+        "day": [f"{d:02d}" for d in range(1, 32)], "grid": "0.25/0.25", "data_format": "grib", "area": _fwi_area()}
+    for k, v in (troca or C.FWI_PEDIDO_TROCA).items():          # ajustes, se o EWDS mudar o formato
+        if v is None:
+            pedido.pop(k, None)
+        else:
+            pedido[k] = v
+    destino = Path(destino).with_suffix(".grib")
+    cliente.retrieve("cems-fire-historical-v1", pedido, str(destino))
     if zipfile.is_zipfile(destino):
         with zipfile.ZipFile(destino) as z:
-            destino.write_bytes(z.read(next(n for n in z.namelist() if n.endswith(".nc"))))
-    ds = xr.open_dataset(destino)
-    da = ds[next(n for n in ds.data_vars if ds[n].ndim >= 3)]
+            destino.write_bytes(z.read(z.namelist()[0]))
+    # GRIB lido pelo cfgrib (precisa do pacote eccodes); "indexpath": "" = não criar arquivo de índice ao lado
+    ds = xr.open_dataset(destino, engine="cfgrib", backend_kwargs={"indexpath": ""})
+    da = ds[next(iter(ds.data_vars))]
     la = next(x for x in da.dims if x.lower() in ("latitude", "lat"))
     lo = next(x for x in da.dims if x.lower() in ("longitude", "lon"))
-    tm = next(x for x in da.dims if x not in (la, lo))
-    da = da.transpose(tm, la, lo)
+    extras = [x for x in da.dims if x not in (la, lo)]
+    tempo = da["valid_time"] if "valid_time" in da.coords else da[extras[0]] if extras else da["time"]
+    if not extras:                                              # um único dia
+        da = da.expand_dims("tmp"); extras = ["tmp"]; tempo = tempo.expand_dims("tmp")
+    da = da.stack(t=extras).transpose("t", la, lo)
+    tv = np.asarray(tempo.values).reshape(-1)
     lons = np.asarray(da[lo].values, float); lons = np.where(lons > 180, lons - 360, lons)
-    x = np.asarray(da.values, "float32"); d = np.asarray(da[tm].values).astype("datetime64[D]")
+    x = np.asarray(da.values, "float32"); d = tv.astype("datetime64[D]")
     lats = np.asarray(da[la].values, float)
     ds.close(); destino.unlink(missing_ok=True)
     o = np.argsort(d)

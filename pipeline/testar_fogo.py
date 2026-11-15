@@ -10,18 +10,23 @@ import fogo, config as C
 C.CACHE.mkdir(parents=True, exist_ok=True)
 
 print("1) NASA FIRMS (focos de calor)")
-try:
-    chave = fogo._firms_chave()
-    disp = fogo._firms_disponivel(chave)
-    print("   disponível:", {k: (str(a), str(b)) for k, (a, b) in disp.items() if k.startswith("MODIS")})
-    b = fogo._firms_bloco(chave, "MODIS_SP", "2024-09-01", 10)       # 1 a 10 de setembro de 2024 (seca forte)
-    print(f"   focos Aqua (confiança >= {C.FIRMS_CONF_MIN}) na área da BAP, 1-10/09/2024: {len(b)}; exemplo: {b[:2]}")
-except Exception as e:                                               # noqa
-    print("   ERRO:", e)
+for n in (C.FIRMS_DIAS, 1):                                          # tenta 5 dias; se falhar, 1 dia
+    try:
+        b = fogo._firms_bloco(fogo._firms_chave(), "MODIS_SP", "2024-09-01", n)
+        print(f"   OK com {n} dia(s): {len(b)} focos Aqua na área da BAP a partir de 01/09/2024; exemplo: {b[:2]}")
+        break
+    except Exception as e:                                           # noqa
+        print(f"   ERRO com {n} dia(s):", str(e)[:400])
 
-print("2) Copernicus EWDS (FWI) — um mês, pode esperar alguns minutos na fila")
-try:
-    x, d, la, lo = fogo._fwi_pedido("consolidated_dataset", 2024, [9], C.CACHE / "teste_fwi.nc")
-    print(f"   {len(d)} dias, grade {x.shape[1]}x{x.shape[2]}, FWI médio em set/2024: {float(x.mean()):.1f}")
-except Exception as e:                                               # noqa
-    print("   ERRO:", str(e)[:800])
+print("2) Copernicus EWDS (FWI) — cada tentativa pode esperar alguns minutos na fila")
+tentativas = [
+    ("consolidado, set/2019", "consolidated_dataset", 2019, {}),
+    ("intermediário, out/2026", "intermediate_dataset", 2026, {}),
+]
+for nome, tipo, ano, troca in tentativas:
+    mes = 10 if ano == 2026 else 9
+    try:
+        x, d, la, lo = fogo._fwi_pedido(tipo, ano, [mes], C.CACHE / "teste_fwi.grib", troca=troca)
+        print(f"   OK ({nome}): {len(d)} dias ({d[0]} a {d[-1]}), grade {x.shape[1]}x{x.shape[2]}, FWI médio {float(x.mean()):.1f}")
+    except Exception as e:                                           # noqa
+        print(f"   ERRO ({nome}):", ' | '.join(str(e).splitlines()[:3])[:400])

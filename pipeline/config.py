@@ -70,12 +70,15 @@ EL_NINO_AVISO = "2026-06-11"           # data em que a NOAA emitiu o "El Niño A
 # Precisa de uma chave gratuita (MAP_KEY): segredo FIRMS_MAP_KEY no GitHub, ou arquivo ~/.firms_key no seu computador.
 FIRMS_API = "https://firms.modaps.eosdis.nasa.gov/api/"
 FIRMS_INICIO = "2003-01-01"            # primeiro ano completo do Aqua
+FIRMS_DIAS = 5                         # dias por pedido à API de área do FIRMS (o limite da API)
 FIRMS_CONF_MIN = 30                    # exclui focos de baixa confiança (< 30%; Giglio et al., 2016)
-FOCOS_REF = (2003, 2022)               # período de comparação dos focos (20 anos completos do Aqua)
+FOCOS_RUPTURA = 2014                  # mudança do regime de fogo do Pantanal (ruptura na área queimada; Barros-Rosa et al., 2026):
+                                       # focos comparados com o regime anterior (2003-2013) e com o recente (2014 até o último ano completo)
 # Perigo de fogo: FWI do Copernicus Emergency Management Service (reanálise ERA5), no Early Warning Data Store
 EWDS_URL = "https://ewds.climate.copernicus.eu/api"
 FWI_ANO_INICIAL = 1991                 # início da normal 1991-2020
 FWI_ATRASO_DIAS = 3
+FWI_PEDIDO_TROCA = {}                  # ajustes no pedido ao EWDS, se necessário (ver testar_fogo.py)
 FWI_MAX_MIN = 120                      # tempo máximo por execução para baixar o FWI (a carga inicial é dividida)
 
 # ----------------------------------------------------------------------------- rio Paraguai (ANA)

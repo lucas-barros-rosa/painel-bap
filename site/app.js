@@ -412,7 +412,7 @@ function faixaEnso() {
   h += W ? '<div class="med"><div class="n">' + num(W.nino34, 1, true) + ' °C</div><div class="r"><b>Última semana</b><br>Niño 3.4, medida tradicional, semana de ' + fmtData(W.semana) + '</div></div>'
     : '<div class="med"><div class="n">–</div><div class="r">valor semanal indisponível</div></div>';
   h += '<details><summary>Entenda os números</summary><div class="explica">' +
-    '<p><strong>O que é.</strong> O El Niño é o aquecimento fora do normal das águas do Pacífico equatorial. Ele muda a circulação da atmosfera e, no centro do Brasil, costuma vir com mais calor e chuva irregular. A referência internacional é a temperatura do mar na região <strong>Niño 3.4</strong>, no meio do Pacífico.</p>' +
+    '<p><strong>O que é.</strong> O El Niño é o aquecimento fora do normal das águas do Pacífico equatorial. Ele muda a circulação da atmosfera e, no centro do Brasil, costuma vir com temperaturas mais altas e chuva irregular. A referência internacional é a temperatura do mar na região <strong>Niño 3.4</strong>, no meio do Pacífico.</p>' +
     '<p><strong>Índice oficial (RONI).</strong> Média de 3 meses da região Niño 3.4, descontado o aquecimento de todo o oceano tropical. A NOAA o adotou em fevereiro de 2026 porque o aquecimento global infla a medida antiga. Intensidade: fraco a partir de +0,5 °C; moderado, +1,0; forte, +1,5; muito forte, +2,0.</p>' +
     '<p><strong>Valor semanal.</strong> Retrato da última semana, sem a média de 3 meses e sem descontar o aquecimento geral do oceano. Por isso é maior que o índice oficial: é o número acima de +3 °C que aparece nas notícias. Os dois estão certos; medem coisas diferentes.</p>' +
     (W && W.nino12 != null ? '<p><strong>Junto à costa.</strong> Na região Niño 1+2, perto do Peru e do Equador, a anomalia semanal é de ' + num(W.nino12, 1, true) + ' °C. Ela mostra o aquecimento costeiro, mas não é usada para classificar o evento.</p>' : '') +
@@ -694,7 +694,7 @@ function fogoDesenhar() {
       (r.percentil != null ? 'acima de <b>' + num(r.percentil) + '%</b> das semanas desta época' : '') + ' · até ' + fmtData(Fw.ultimo)); }
   const SC = F.seca_calor && F.seca_calor.regioes[regFogo], sp6 = D.series.regioes[regFogo].spei6, j6 = ultimoIdx(sp6);
   if (SC) { const c = classeSecaB(sp6[j6]);
-    t += tileF('Calor e seca', SC.dias_onda_30 + '<small>dias de onda de calor em 30</small>', '<i class="chip" style="background:' + corSecaB(c) + '"></i>' + NOMES_SECA_B[c] + ' (SPEI-6, ' + fmtMesC(D.series.meses[j6]) + ')'); }
+    t += tileF('Seca e ondas de calor', SC.dias_onda_30 + '<small>dias de onda de calor em 30</small>', '<i class="chip" style="background:' + corSecaB(c) + '"></i>' + NOMES_SECA_B[c] + ' (SPEI-6, ' + fmtMesC(D.series.meses[j6]) + ')'); }
   $('fogo-tiles').innerHTML = t || '<p class="nota">Dados de fogo indisponíveis nesta atualização.</p>';
   // mapa
   $('fogo-mapa-bloco').hidden = !(Fw || Fo);
@@ -754,7 +754,7 @@ function secaCalor() {
   $('sq-bloco').hidden = !SC; if (!SC) return;
   const S = D.series, R = S.regioes[regFogo], M = S.meses, [m0, m1] = SCt.temporada;
   const nomeT = MESES[m0 - 1] + '–' + MESES[m1 - 1];
-  $('sq-tit').textContent = 'Seca e calor juntos — ' + nomeReg(regFogo);
+  $('sq-tit').textContent = 'Seca e ondas de calor juntas — ' + nomeReg(regFogo);
   // ---- ano a ano: % da região × dias da temporada em onda de calor, cor = pior SPEI-6 da temporada
   const anos = Object.keys(SC.anual).sort(), info = {};
   anos.forEach(a => {

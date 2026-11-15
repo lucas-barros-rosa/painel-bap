@@ -83,7 +83,7 @@
     <div class="bloco">
       <div class="bloco-cab"><div><h2 id="mes-titulo">Último mês completo</h2><p class="sub" id="mes-sub"></p></div></div>
       <div class="tiles tiles-mes" id="cartoes"></div>
-      <p class="nota">SPI e SPEI medem a seca: abaixo de −1, seca moderada; abaixo de −2, seca extrema. O SPI considera só a chuva; o SPEI desconta também a água perdida por evaporação, que cresce com o calor. Onda de calor: dias em sequências de 3 ou mais dias com temperatura máxima entre os 10% mais altos daquela época do ano.</p>
+      <p class="nota">SPI e SPEI medem a seca: abaixo de −1, seca moderada; abaixo de −2, seca extrema. O SPI considera só a chuva; o SPEI desconta também a água perdida por evaporação, que cresce com a temperatura. Onda de calor: dias em sequências de 3 ou mais dias com temperatura máxima entre os 10% mais altos daquela época do ano.</p>
     </div>
 
     <div class="atalhos" id="atalhos"></div>
@@ -148,7 +148,7 @@
 
   <!-- ============================== FOGO ============================== -->
   <section id="s-fogo" class="secao" hidden>
-    <div class="cab-secao"><h2>Fogo</h2><p>Focos de calor detectados por satélite, perigo de fogo pelas condições do tempo e meses em que a seca veio junto com o calor.</p></div>
+    <div class="cab-secao"><h2>Fogo</h2><p>Focos de calor detectados por satélite, perigo de fogo pelas condições do tempo e períodos em que a seca veio junto com ondas de calor.</p></div>
     <div class="regiao-bar"><span>Região</span><div class="seg" id="fogo-reg" aria-label="Região"></div></div>
     <p class="ajuda" id="fwi-aviso" hidden></p>
 
@@ -158,7 +158,7 @@
       <div class="botoes" id="fogo-pontos"></div>
       <div class="mapa-int" id="fogo-mapa"></div>
       <div class="legenda-mapa" id="fogo-mapa-leg"></div>
-      <p class="nota"><strong>FWI:</strong> índice de perigo de fogo pelas condições do tempo (calor, ar seco, vento e falta de chuva), não pela presença de fogo. Classes do sistema europeu e global de alerta (EFFIS/GWIS), calibradas fora do Brasil: a comparação com o histórico da região, mais abaixo, é a referência mais segura.</p>
+      <p class="nota"><strong>FWI:</strong> índice de perigo de fogo pelas condições do tempo (temperatura, umidade do ar, vento e chuva), não pela presença de fogo. Classes do sistema europeu e global de alerta (EFFIS/GWIS), calibradas fora do Brasil: a comparação com o histórico da região, mais abaixo, é a referência mais segura.</p>
     </div>
     <div class="tiles tiles-fogo" id="fogo-tiles"></div>
 
@@ -178,9 +178,9 @@
     </div>
 
     <div class="bloco" id="sq-bloco">
-      <h2 id="sq-tit">Seca e calor juntos</h2>
+      <h2 id="sq-tit">Seca e ondas de calor juntas</h2>
       <div class="explica-bloco">
-        <p><strong>Por que olhar os dois juntos.</strong> Seca e calor se alimentam: com o solo seco, falta água para evaporar e resfriar a superfície, e o ar esquenta ainda mais; o calor, por sua vez, seca mais rápido a vegetação e o solo. Com menos chuva no planalto, o pulso de cheia também é menor e sobra mais vegetação seca na planície. No Pantanal, os grandes incêndios de 2020 e 2024 aconteceram nessas condições: em 2020, 55% da área queimada no ano ocorreu nos períodos de calor extremo durante a seca (Libonati et al., 2022); em 2024, a seca mais severa desde 1980, junto com ondas de calor, antecipou a temporada de fogo para junho (Belém et al., 2026).</p>
+        <p><strong>Por que olhar os dois juntos.</strong> Seca e ondas de calor se reforçam: com o solo seco, falta água para evaporar e resfriar a superfície, e a temperatura sobe ainda mais; a temperatura alta, por sua vez, seca mais rápido a vegetação e o solo. Com menos chuva no planalto, o pulso de cheia também é menor e sobra mais vegetação seca na planície. No Pantanal, os grandes incêndios de 2020 e 2024 aconteceram nessas condições: em 2020, 55% da área queimada no ano ocorreu nos períodos de ondas de calor durante a seca (Libonati et al., 2022); em 2024, a seca mais severa desde 1980, junto com ondas de calor, antecipou a temporada de fogo para junho (Belém et al., 2026).</p>
       </div>
       <h3 class="sub-tit">Últimos 12 meses, dia a dia</h3>
       <div class="legenda" id="sq-dia-leg"></div>
@@ -198,7 +198,7 @@
 
   <!-- ============================== PREVISÃO ============================== -->
   <section id="s-previsao" class="secao" hidden>
-    <div class="cab-secao"><h2>Previsão para os próximos meses</h2><p>Quanto mais chuva ou calor que o normal os modelos de previsão sazonal indicam, mês a mês.</p></div>
+    <div class="cab-secao"><h2>Previsão para os próximos meses</h2><p>Quanto a chuva e a temperatura devem ficar acima ou abaixo do normal, mês a mês, segundo os modelos de previsão sazonal.</p></div>
     <div class="filtros">
       <label>Modelo <select id="prev-mod"></select></label>
       <label>Variável <select id="prev-var"><option value="chuva">Chuva (anomalia, mm/mês)</option><option value="temp">Temperatura (anomalia, °C)</option></select></label>
@@ -270,7 +270,7 @@
       <div class="bloco sobre-intro">
         <p class="rotulo">Sobre o painel</p>
         <h2 class="titulo-grande">Clima e água na Bacia do Alto Paraguai, em um só lugar</h2>
-        <p>O painel acompanha a chuva, o calor, a seca e o nível do rio Paraguai na Bacia do Alto Paraguai (BAP) no Brasil — o Pantanal e o planalto que o alimenta — e mostra o que os modelos preveem para os próximos meses. O foco é o El Niño de 2026–27 e o que ele pode significar para a seca e o fogo na região.</p>
+        <p>O painel acompanha a chuva, a temperatura, as ondas de calor, a seca e o nível do rio Paraguai na Bacia do Alto Paraguai (BAP) no Brasil — o Pantanal e o planalto que o alimenta — e mostra o que os modelos preveem para os próximos meses. O foco é o El Niño de 2026–27 e o que ele pode significar para a seca e o fogo na região.</p>
         <p>Foi pensado para quem trabalha no território: brigadistas, gestores de unidades de conservação, pesquisadores, produtores e qualquer pessoa curiosa. Complementa, sem substituir, os boletins e alertas oficiais.</p>
         <p class="indep">É um projeto independente do autor, feito com dados públicos. Não é um produto oficial da University of British Columbia nem de outra instituição.</p>
         <div class="fatos">
@@ -317,7 +317,7 @@
         <div><h3>El Niño</h3><p>Índice oficial da NOAA desde fevereiro de 2026, o RONI: temperatura do mar na região Niño 3.4, no Pacífico equatorial, em média de 3 meses e descontado o aquecimento de todo o oceano tropical (L'Heureux et al., 2024). Um evento começa no primeiro de pelo menos 5 trimestres seguidos com RONI ≥ +0,5 °C (critério da NOAA); o mês marcado é o central desse trimestre. Enquanto o evento em curso não completa 5 trimestres, o início é mostrado como provisório.</p></div>
         <div><h3>Focos de calor</h3><p>NASA FIRMS, sensor MODIS do satélite Aqua (passagem no início da tarde, como o satélite de referência do INPE), desde 2003, excluídos os focos de baixa confiança (Giglio et al., 2016). Como o regime de fogo do Pantanal mudou, com ruptura na área queimada em 2014 (Barros-Rosa et al., 2026), os focos são comparados com dois períodos: 2003–2013 e de 2014 ao último ano completo. O Aqua deve encerrar a missão em 2027; a série passará então aos sensores VIIRS.</p></div>
         <div><h3>Perigo de fogo (FWI)</h3><p>Índice do sistema canadense de perigo de incêndio (Van Wagner, 1987), calculado pelo Copernicus Emergency Management Service a partir da reanálise ERA5 (Vitolo et al., 2020). Comparado com o percentil 50 e o percentil 90 de cada época do ano em 1991–2020, numa janela de ±7 dias.</p></div>
-        <div><h3>Seca e calor juntos</h3><p>Para cada temporada de fogo (junho a outubro), a porcentagem de quadrículas × dias em onda de calor, ponderada pela área (Belém et al., 2026), e a pior seca do período pelo SPEI-6, nas classes de Belém et al. (2026). Abordagem de eventos compostos de seca e onda de calor aplicada ao Pantanal por Libonati et al. (2022).</p></div>
+        <div><h3>Seca e ondas de calor juntas</h3><p>Para cada temporada de fogo (junho a outubro), a porcentagem de quadrículas × dias em onda de calor, ponderada pela área (Belém et al., 2026), e a pior seca do período pelo SPEI-6, nas classes de Belém et al. (2026). Abordagem de eventos compostos de seca e onda de calor aplicada ao Pantanal por Libonati et al. (2022).</p></div>
         <div><h3>Previsão sazonal</h3><p>Sistemas do Copernicus C3S, com o ECMWF SEAS5 como referência (Johnson et al., 2019; avaliado para a América do Sul por Gubler et al., 2020) e o CMCC SPS4 como segunda opinião. Anomalias em relação ao clima de cada modelo em 1993–2016.</p></div>
         <div><h3>Rio Paraguai</h3><p>Níveis diários da rede hidrometeorológica da ANA. Em Cáceres, perto das cabeceiras, o rio responde em dias às chuvas; em Ladário e Porto Murtinho, depois de atravessar o Pantanal, a cheia chega meses depois e bem mais suave (Hamilton et al., 1996).</p></div>
       </div>
@@ -327,29 +327,29 @@
       <details class="refs-det">
         <summary><span class="rotulo">Referências</span> <span id="n-refs"></span></summary>
         <ul class="refs" id="refs">
-          <li>Barros-Rosa, L. et al. (2026). <em>Global Change Biology</em>.</li>
+          <li>Barros-Rosa, L. et al. (2026). <em>Global Change Biology</em>. <a href="https://doi.org/10.1111/gcb.71089">doi:10.1111/gcb.71089</a></li>
           <li>Belém, L. B. C., Albuquerque, R., Peres, L. F. et al. (2026). Dry–hot compound events driving the 2024 Pantanal wildfires. <em>International Journal of Climatology</em>, 46, e70312. <a href="https://doi.org/10.1002/joc.70312">doi:10.1002/joc.70312</a></li>
-          <li>Epstein, E. S. (1991). On obtaining daily climatological values from monthly means. <em>Journal of Climate</em>, 4(3), 365–368.</li>
-          <li>Funk, C. et al. (2026). The Climate Hazards Center Infrared Precipitation with Stations, Version 3. <em>Scientific Data</em>, 13, 718. doi:10.1038/s41597-026-07096-4</li>
-          <li>Giglio, L., Schroeder, W. &amp; Justice, C. O. (2016). The collection 6 MODIS active fire detection algorithm and fire products. <em>Remote Sensing of Environment</em>, 178, 31–41.</li>
-          <li>Gubler, S. et al. (2020). Assessment of ECMWF SEAS5 seasonal forecast performance over South America. <em>Weather and Forecasting</em>, 35(2), 561–584.</li>
+          <li>Epstein, E. S. (1991). On obtaining daily climatological values from monthly means. <em>Journal of Climate</em>, 4(3), 365–368. <a href="https://doi.org/10.1175/1520-0442(1991)004%3C0365:OODCVF%3E2.0.CO;2">doi:10.1175/1520-0442(1991)004&lt;0365:OODCVF&gt;2.0.CO;2</a></li>
+          <li>Funk, C. et al. (2026). The Climate Hazards Center Infrared Precipitation with Stations, Version 3. <em>Scientific Data</em>, 13, 718. <a href="https://doi.org/10.1038/s41597-026-07096-4">doi:10.1038/s41597-026-07096-4</a></li>
+          <li>Giglio, L., Schroeder, W. &amp; Justice, C. O. (2016). The collection 6 MODIS active fire detection algorithm and fire products. <em>Remote Sensing of Environment</em>, 178, 31–41. <a href="https://doi.org/10.1016/j.rse.2016.02.054">doi:10.1016/j.rse.2016.02.054</a></li>
+          <li>Gubler, S. et al. (2020). Assessment of ECMWF SEAS5 seasonal forecast performance over South America. <em>Weather and Forecasting</em>, 35(2), 561–584. <a href="https://doi.org/10.1175/WAF-D-19-0106.1">doi:10.1175/WAF-D-19-0106.1</a></li>
           <li>Hamilton, S. K., Sippel, S. J. &amp; Melack, J. M. (1996). Inundation patterns in the Pantanal wetland of South America determined from passive microwave remote sensing. <em>Archiv für Hydrobiologie</em>, 137(1), 1–23.</li>
-          <li>Hargreaves, G. H. &amp; Samani, Z. A. (1985). Reference crop evapotranspiration from temperature. <em>Applied Engineering in Agriculture</em>, 1(2), 96–99.</li>
+          <li>Hargreaves, G. H. &amp; Samani, Z. A. (1985). Reference crop evapotranspiration from temperature. <em>Applied Engineering in Agriculture</em>, 1(2), 96–99. <a href="https://doi.org/10.13031/2013.26773">doi:10.13031/2013.26773</a></li>
           <li>IBGE (2019). <em>Biomas e sistema costeiro-marinho do Brasil: compatível com a escala 1:250.000</em>. Rio de Janeiro: IBGE.</li>
-          <li>Johnson, S. J. et al. (2019). SEAS5: the new ECMWF seasonal forecast system. <em>Geoscientific Model Development</em>, 12, 1087–1117.</li>
-          <li>Jolliffe, I. T. &amp; Stephenson, D. B. (eds.) (2012). <em>Forecast Verification: A Practitioner's Guide in Atmospheric Science</em>, 2nd ed. Wiley.</li>
-          <li>L'Heureux, M. L. et al. (2024). A relative sea surface temperature index for classifying ENSO events in a changing climate. <em>Journal of Climate</em>. doi:10.1175/JCLI-D-23-0406.1</li>
-          <li>Lavers, D. A., Simmons, A., Vamborg, F. &amp; Rodwell, M. J. (2022). An evaluation of ERA5 precipitation for climate monitoring. <em>Quarterly Journal of the Royal Meteorological Society</em>, 148, 3152–3165.</li>
-          <li>Libonati, R., Geirinhas, J. L., Silva, P. S. et al. (2022). Assessing the role of compound drought and heatwave events on unprecedented 2020 wildfires in the Pantanal. <em>Environmental Research Letters</em>, 17, 015005.</li>
+          <li>Johnson, S. J. et al. (2019). SEAS5: the new ECMWF seasonal forecast system. <em>Geoscientific Model Development</em>, 12, 1087–1117. <a href="https://doi.org/10.5194/gmd-12-1087-2019">doi:10.5194/gmd-12-1087-2019</a></li>
+          <li>Jolliffe, I. T. &amp; Stephenson, D. B. (eds.) (2012). <em>Forecast Verification: A Practitioner's Guide in Atmospheric Science</em>, 2nd ed. Wiley. <a href="https://doi.org/10.1002/9781119960003">doi:10.1002/9781119960003</a></li>
+          <li>L'Heureux, M. L. et al. (2024). A relative sea surface temperature index for classifying ENSO events in a changing climate. <em>Journal of Climate</em>, 37(4), 1197–1211. <a href="https://doi.org/10.1175/JCLI-D-23-0406.1">doi:10.1175/JCLI-D-23-0406.1</a></li>
+          <li>Lavers, D. A., Simmons, A., Vamborg, F. &amp; Rodwell, M. J. (2022). An evaluation of ERA5 precipitation for climate monitoring. <em>Quarterly Journal of the Royal Meteorological Society</em>, 148, 3152–3165. <a href="https://doi.org/10.1002/qj.4351">doi:10.1002/qj.4351</a></li>
+          <li>Libonati, R., Geirinhas, J. L., Silva, P. S. et al. (2022). Assessing the role of compound drought and heatwave events on unprecedented 2020 wildfires in the Pantanal. <em>Environmental Research Letters</em>, 17, 015005. <a href="https://doi.org/10.1088/1748-9326/ac462e">doi:10.1088/1748-9326/ac462e</a></li>
           <li>McKee, T. B., Doesken, N. J. &amp; Kleist, J. (1993). The relationship of drought frequency and duration to time scales. <em>8th Conference on Applied Climatology</em>, AMS.</li>
-          <li>Muñoz-Sabater, J. et al. (2021). ERA5-Land: a state-of-the-art global reanalysis dataset for land applications. <em>Earth System Science Data</em>, 13, 4349–4383.</li>
-          <li>Perkins, S. E. &amp; Alexander, L. V. (2013). On the measurement of heat waves. <em>Journal of Climate</em>, 26(13), 4500–4517.</li>
-          <li>Thielen, D. et al. (2020). Quo vadis Pantanal? Expected precipitation extremes and drought dynamics from changing sea surface temperature. <em>PLOS ONE</em>, 15(1), e0227437.</li>
-          <li>Thom, H. C. S. (1958). A note on the gamma distribution. <em>Monthly Weather Review</em>, 86(4), 117–122.</li>
-          <li>Uliana, E. M. et al. (2024). Validação e análise espaço-temporal de dados de precipitação obtidos por sensoriamento remoto CHIRPS para o estado de Mato Grosso, Brasil. <em>Revista Brasileira de Climatologia</em>, 35(20), 630–654. doi:10.55761/abclima.v35i20.18858</li>
+          <li>Muñoz-Sabater, J. et al. (2021). ERA5-Land: a state-of-the-art global reanalysis dataset for land applications. <em>Earth System Science Data</em>, 13, 4349–4383. <a href="https://doi.org/10.5194/essd-13-4349-2021">doi:10.5194/essd-13-4349-2021</a></li>
+          <li>Perkins, S. E. &amp; Alexander, L. V. (2013). On the measurement of heat waves. <em>Journal of Climate</em>, 26(13), 4500–4517. <a href="https://doi.org/10.1175/JCLI-D-12-00383.1">doi:10.1175/JCLI-D-12-00383.1</a></li>
+          <li>Thielen, D. et al. (2020). Quo vadis Pantanal? Expected precipitation extremes and drought dynamics from changing sea surface temperature. <em>PLOS ONE</em>, 15(1), e0227437. <a href="https://doi.org/10.1371/journal.pone.0227437">doi:10.1371/journal.pone.0227437</a></li>
+          <li>Thom, H. C. S. (1958). A note on the gamma distribution. <em>Monthly Weather Review</em>, 86(4), 117–122. <a href="https://doi.org/10.1175/1520-0493(1958)086%3C0117:ANOTGD%3E2.0.CO;2">doi:10.1175/1520-0493(1958)086&lt;0117:ANOTGD&gt;2.0.CO;2</a></li>
+          <li>Uliana, E. M. et al. (2024). Validação e análise espaço-temporal de dados de precipitação obtidos por sensoriamento remoto CHIRPS para o estado de Mato Grosso, Brasil. <em>Revista Brasileira de Climatologia</em>, 35(20), 630–654. <a href="https://doi.org/10.55761/abclima.v35i20.18858">doi:10.55761/abclima.v35i20.18858</a></li>
           <li>Van Wagner, C. E. (1987). <em>Development and structure of the Canadian Forest Fire Weather Index System</em>. Forestry Technical Report 35. Canadian Forestry Service.</li>
-          <li>Vicente-Serrano, S. M., Beguería, S. &amp; López-Moreno, J. I. (2010). A multiscalar drought index sensitive to global warming: the SPEI. <em>Journal of Climate</em>, 23(7), 1696–1718.</li>
-          <li>Vitolo, C. et al. (2020). ERA5-based global meteorological wildfire danger maps. <em>Scientific Data</em>, 7, 216.</li>
+          <li>Vicente-Serrano, S. M., Beguería, S. &amp; López-Moreno, J. I. (2010). A multiscalar drought index sensitive to global warming: the SPEI. <em>Journal of Climate</em>, 23(7), 1696–1718. <a href="https://doi.org/10.1175/2009JCLI2909.1">doi:10.1175/2009JCLI2909.1</a></li>
+          <li>Vitolo, C. et al. (2020). ERA5-based global meteorological wildfire danger maps. <em>Scientific Data</em>, 7, 216. <a href="https://doi.org/10.1038/s41597-020-0554-z">doi:10.1038/s41597-020-0554-z</a></li>
           <li>WMO (2017). <em>WMO Guidelines on the Calculation of Climate Normals</em>. WMO-No. 1203.</li>
         </ul>
       </details>

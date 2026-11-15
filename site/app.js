@@ -403,7 +403,7 @@ function faixaEnso() {
   fx.hidden = false; fx.classList.toggle('neutro', !emCurso);
   let estado;
   if (emCurso) {
-    const prov = at.provisorio ? '<br>Início provisório: o critério oficial pede 5 médias de 3 meses seguidas (sobrepostas, como mai–jul, jun–ago, jul–set…) acima de +0,5 °C, o que cobre 7 meses. Faltam ' + (5 - at.trimestres) + '.' : '';
+    const prov = at.provisorio ? '<br>O alerta oficial já está em vigor. O que ainda falta é fechar a classificação histórica do evento, que pede 5 médias de 3 meses seguidas (sobrepostas, como mai–jul, jun–ago, jul–set…) acima de +0,5 °C, cobrindo 7 meses: falta(m) ' + (5 - at.trimestres) + '.' : '';
     estado = '<span class="selo">El Niño</span><strong>El Niño ' + forcaNino(o.v) + ' em curso</strong><span class="det">Começou em ' + fmtMesL(at.inicio) +
       (E.aviso ? ' · alerta oficial da NOAA em ' + fmtDataC(E.aviso) : '') + prov + '</span>';
   } else estado = '<span class="selo">Pacífico equatorial</span><strong>' + (o.v >= 0.5 ? 'Águas mais quentes que o normal' : o.v <= -0.5 ? 'Águas mais frias que o normal (La Niña?)' : 'Sem El Niño ou La Niña') + '</strong><span class="det">Situação do El Niño–Oscilação Sul</span>';

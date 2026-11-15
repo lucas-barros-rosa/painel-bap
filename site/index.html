@@ -63,18 +63,20 @@
   <!-- ============================== VISÃO GERAL ============================== -->
   <section id="s-visao" class="secao">
     <div class="enso" id="faixa-enso" hidden></div>
-    <div class="regiao-bar"><span>Região</span><div class="seg" id="agora-reg" aria-label="Região"></div></div>
 
     <div class="bloco">
-      <div class="bloco-cab">
-        <div><h2>Últimos dias</h2><p class="sub" id="agora-sub"></p></div>
-      </div>
+      <div class="bloco-cab"><div><h2>Situação agora</h2><p class="sub" id="agora-mapa-sub"></p></div></div>
+      <div class="botoes" id="agora-camadas"></div>
       <div class="agora">
-        <div class="tiles" id="agora-tiles"></div>
-        <figure class="mini-mapa">
-          <div class="mapa-wrap"><canvas id="agora-mapa"></canvas></div>
-          <figcaption id="agora-mapa-leg"></figcaption>
-        </figure>
+        <div class="agora-mapa">
+          <div class="mapa-int" id="agora-mapa"></div>
+          <div class="legenda-mapa" id="agora-mapa-leg"></div>
+        </div>
+        <div>
+          <div class="regiao-bar regiao-mini"><span>Números de</span><div class="seg" id="agora-reg" aria-label="Região"></div></div>
+          <p class="sub" id="agora-sub"></p>
+          <div class="tiles" id="agora-tiles"></div>
+        </div>
       </div>
     </div>
 
@@ -149,7 +151,6 @@
     <div class="cab-secao"><h2>Fogo</h2><p>Focos de calor detectados por satélite, perigo de fogo pelas condições do tempo e meses em que a seca veio junto com o calor.</p></div>
     <div class="regiao-bar"><span>Região</span><div class="seg" id="fogo-reg" aria-label="Região"></div></div>
     <p class="ajuda" id="fwi-aviso" hidden></p>
-    <div class="tiles" id="fogo-tiles"></div>
 
     <div class="bloco" id="fogo-mapa-bloco">
       <h2>Perigo de fogo e focos recentes</h2>
@@ -157,15 +158,16 @@
       <div class="botoes" id="fogo-pontos"></div>
       <div class="mapa-int" id="fogo-mapa"></div>
       <div class="legenda-mapa" id="fogo-mapa-leg"></div>
-      <p class="nota">O <strong>FWI</strong> (índice de perigo de fogo) combina temperatura, umidade do ar, vento e chuva dos últimos dias e meses para estimar quão fácil seria um fogo começar e se espalhar. Mede o perigo pelas condições do tempo, não a presença de fogo. As classes de cor são as usadas pelo sistema europeu e global de alerta de incêndios (EFFIS/GWIS); como foram calibradas fora do Brasil, a comparação com o histórico da própria região, nos gráficos abaixo, é a referência mais segura. Pontos: focos de calor detectados pelo satélite Aqua (NASA).</p>
+      <p class="nota"><strong>FWI:</strong> índice de perigo de fogo pelas condições do tempo (calor, ar seco, vento e falta de chuva), não pela presença de fogo. Classes do sistema europeu e global de alerta (EFFIS/GWIS), calibradas fora do Brasil: a comparação com o histórico da região, mais abaixo, é a referência mais segura.</p>
     </div>
+    <div class="tiles tiles-fogo" id="fogo-tiles"></div>
 
     <div class="bloco" id="fogo-ac-bloco">
       <h2 id="fogo-ac-tit">Focos de calor acumulados no ano</h2>
       <div class="legenda" id="fogo-ac-leg"></div>
       <div class="anos-rio" id="fogo-anos"></div>
       <div class="graf" id="fogo-ac-graf"></div>
-      <p class="nota nota-ast">* <strong>Faixas:</strong> em 8 de cada 10 anos de cada período, o total acumulado até aquele dia ficou dentro da faixa; as linhas tracejadas são as medianas. O regime de fogo do Pantanal mudou: a área queimada teve uma ruptura em 2014 (Barros-Rosa et al., 2026). Por isso os focos são comparados com dois períodos, antes e depois dessa ruptura, em vez de uma única média que misturaria os dois regimes. A ruptura foi identificada na área queimada desde 1985; aplicá-la aos focos supõe que as duas medidas mudaram juntas.<br>Foco de calor é um ponto da superfície muito mais quente que o entorno visto pelo satélite: indica fogo ativo naquele momento, mas não é o mesmo que área queimada, e um incêndio grande gera muitos focos. Fonte: NASA FIRMS, sensor MODIS do satélite Aqua, que passa no início da tarde, como o "satélite de referência" do INPE. Focos de baixa confiança foram excluídos (Giglio et al., 2016).</p>
+      <p class="nota"><strong>Foco de calor</strong> é fogo ativo visto pelo satélite no momento da passagem, não área queimada: um incêndio grande gera muitos focos. Fonte: NASA FIRMS, sensor MODIS do satélite Aqua (passagem no início da tarde, como o satélite de referência do INPE), sem os focos de baixa confiança (Giglio et al., 2016). As médias usadas nos números acima são de 2014 em diante, depois da ruptura no regime de fogo do Pantanal (Barros-Rosa et al., 2026).</p>
     </div>
 
     <div class="bloco" id="fwi-bloco">
@@ -180,15 +182,17 @@
       <div class="explica-bloco">
         <p><strong>Por que olhar os dois juntos.</strong> Seca e calor se alimentam: com o solo seco, falta água para evaporar e resfriar a superfície, e o ar esquenta ainda mais; o calor, por sua vez, seca mais rápido a vegetação e o solo. Com menos chuva no planalto, o pulso de cheia também é menor e sobra mais vegetação seca na planície. No Pantanal, os grandes incêndios de 2020 e 2024 aconteceram nessas condições: em 2020, 55% da área queimada no ano ocorreu nos períodos de calor extremo durante a seca (Libonati et al., 2022); em 2024, a seca mais severa desde 1980, junto com ondas de calor, antecipou a temporada de fogo para junho (Belém et al., 2026).</p>
       </div>
-      <h3 class="sub-tit">Temporada de fogo, ano a ano</h3>
-      <p class="sub">Altura da barra: quanto da temporada de fogo (junho a outubro) a região passou em onda de calor, somando área e dias. Cor: a pior seca do período. Barras altas e avermelhadas são os anos com seca e calor juntos.</p>
-      <div class="legenda" id="sq-leg"></div>
-      <div class="graf" id="sq-graf"></div>
       <h3 class="sub-tit">Últimos 12 meses, dia a dia</h3>
       <div class="legenda" id="sq-dia-leg"></div>
       <div class="graf" id="sq-dia"></div>
       <div class="graf faixa-seca" id="sq-seca"></div>
-      <p class="nota"><strong>Onda de calor:</strong> 3 dias ou mais seguidos com temperatura máxima acima do percentil 90 daquele dia do ano em 1991–2020, numa janela de 15 dias. Na barra anual, a conta é feita em cada quadrícula e depois somada: 30% quer dizer, por exemplo, 30% da região em onda de calor todos os dias, ou a região toda em 30% dos dias. <strong>Seca:</strong> SPEI de 6 meses, que considera a chuva e a água perdida por evaporação, nas classes anormal (≤ −0,5), moderada (≤ −0,8), severa (≤ −1,3), extrema (≤ −1,6) e excepcional (≤ −2,0). Temporada de junho a outubro, definições e classes seguem Belém et al. (2026), que estudaram os incêndios de 2024 no Pantanal com o mesmo critério de onda de calor de Libonati et al. (2022). A marca laranja sob a barra indica El Niño em algum mês da temporada.</p>
+      <details class="sq-anual"><summary>Comparar as temporadas de fogo, ano a ano</summary>
+      <p class="sub">Altura da barra: quanto da temporada de fogo (junho a outubro) a região passou em onda de calor, somando área e dias. Cor: a pior seca do período. Barras altas e avermelhadas são os anos com seca e calor juntos.</p>
+      <div class="legenda" id="sq-leg"></div>
+      <div class="graf" id="sq-graf"></div>
+      <p class="nota">Este resumo olha só junho a outubro, a temporada usada por Belém et al. (2026). Secas e ondas de calor fora desse período, como a de novembro de 2023 no Pantanal de Mato Grosso, aparecem no gráfico dia a dia, mas não aqui.</p>
+      </details>
+      <p class="nota"><strong>Onda de calor:</strong> 3 dias ou mais seguidos com temperatura máxima acima do percentil 90 daquele dia do ano em 1991–2020, numa janela de 15 dias. No resumo anual, a conta é feita em cada quadrícula: 30% quer dizer, por exemplo, 30% da região em onda de calor todos os dias, ou a região toda em 30% dos dias. <strong>Seca:</strong> SPEI de 6 meses, que considera a chuva e a água perdida por evaporação, nas classes anormal (≤ −0,5), moderada (≤ −0,8), severa (≤ −1,3), extrema (≤ −1,6) e excepcional (≤ −2,0). Temporada de junho a outubro, definições e classes seguem Belém et al. (2026), que estudaram os incêndios de 2024 no Pantanal com o mesmo critério de onda de calor de Libonati et al. (2022). No resumo anual, a marca laranja sob a barra indica El Niño em algum mês da temporada.</p>
     </div>
   </section>
 
@@ -201,18 +205,18 @@
       <label>Região <select id="prev-reg"></select></label>
     </div>
     <div class="bloco">
-      <p class="frase" id="prev-frase"></p>
-      <h2 id="prev-titulo"></h2>
-      <div class="legenda" id="prev-leg"></div>
-      <div class="graf" id="prev-graf"></div>
-      <p class="nota nota-ast">* <strong>Faixa dos membros:</strong> o modelo roda a mesma previsão dezenas de vezes (os "membros"), cada uma partindo de condições iniciais um pouco diferentes. A faixa reúne 80% desses membros e mostra a incerteza da previsão: quanto mais larga, menos o modelo tem certeza. Não é um intervalo de confiança estatístico.</p>
-    </div>
-    <div class="bloco">
       <h2>Mapa da previsão <span class="sub" id="prev-mapa-sub"></span></h2>
       <div class="botoes" id="prev-leads"></div>
       <div class="mapa-int mapa-medio" id="prev-mapa"></div>
       <div class="legenda-mapa" id="prev-mapa-leg"></div>
       <p class="nota">Previsão sazonal do Copernicus Climate Change Service (C3S), grade de 1° (cerca de 110 km). Anomalias em relação ao clima do próprio modelo em 1993–2016, o que remove o viés médio do modelo. A previsão de chuva para esta região tem acerto limitado: use junto com a aba "Previsto × observado".</p>
+    </div>
+    <div class="bloco">
+      <p class="frase" id="prev-frase"></p>
+      <h2 id="prev-titulo"></h2>
+      <div class="legenda" id="prev-leg"></div>
+      <div class="graf" id="prev-graf"></div>
+      <p class="nota nota-ast">* <strong>Faixa dos membros:</strong> o modelo roda a mesma previsão dezenas de vezes (os "membros"), cada uma partindo de condições iniciais um pouco diferentes. A faixa reúne 80% desses membros e mostra a incerteza da previsão: quanto mais larga, menos o modelo tem certeza. Não é um intervalo de confiança estatístico.</p>
     </div>
   </section>
 

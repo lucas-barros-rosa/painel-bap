@@ -372,6 +372,8 @@ def agora_json(P_clim, chuva_diaria, tmax, datas, onda, m05, m10, w05, w10, masc
     clim_tmax = np.nanmean(tmax[ref & np.isin(doy, list(doys30))], axis=0)
     anom30 = np.nanmean(tmax[sel30], axis=0) - clim_tmax
     out["temp"] = {"ate": str(fim_t), "mes": str(fim_t)[:7], "dia": dia_lim}
+    out["mapa_tmax30"] = {"lon0": G10["lon0"], "lat0": G10["lat0"], "d": G10["d"], "nx": G10["nx"], "ny": G10["ny"],
+                          "v": arred(np.where(m10 > 0, anom30, np.nan), 1), "de": str(fim_t - 29), "ate": str(fim_t)}
     for r in REGIOES:
         k = masc(m10, r)
         media = lambda x: float(np.nansum(np.where(k, x, 0) * w10) / np.sum(np.where(k, w10, 0)))

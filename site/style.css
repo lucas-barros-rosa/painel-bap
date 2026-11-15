@@ -260,3 +260,17 @@ code{background:var(--meio);padding:1px 5px;border-radius:4px;font-size:13px}
 .explica-bloco p{margin:0}
 .sub-tit{font-size:14.5px;margin:18px 0 2px}
 .faixa-seca{margin-top:-4px}
+
+/* visão geral: mapa "situação agora" ao lado dos números */
+.agora{grid-template-columns:minmax(0,1fr) 320px}
+.agora .tiles{grid-template-columns:1fr}
+.agora-mapa .mapa-int{height:clamp(420px,72vh,620px)}
+.regiao-mini{margin:0 0 6px;flex-wrap:wrap}
+.regiao-mini .seg button{font-size:12px;padding:4px 8px}
+#agora-camadas{margin-bottom:10px}
+@media (max-width:760px){ .agora .tiles{grid-template-columns:repeat(2,minmax(0,1fr))} .agora-mapa .mapa-int{height:62vh} }
+/* fogo: cartões curtos logo abaixo do mapa */
+.tiles-fogo{margin:0 0 16px}
+.tiles-fogo .det b{color:var(--tinta);font-weight:600}
+.sq-anual{margin-top:14px}
+.sq-anual summary{cursor:pointer;font-weight:600;font-size:14px}

@@ -228,9 +228,9 @@ def fwi_diario():
     partes = []
     t0 = time.time()
 
-    def pedir(nome, tipo, ano, meses):
+    def pedir(nome, tipo, ano, meses, refazer=False):
         arq = pasta / f"{nome}.npz"
-        if arq.exists():
+        if arq.exists() and not refazer:
             z = np.load(arq)
             return z["x"], z["d"], z["la"], z["lo"]
         if (time.time() - t0) / 60 > C.FWI_MAX_MIN:
@@ -265,18 +265,23 @@ def fwi_diario():
             ultimo_dia = (dt.date(ano + mes // 12, mes % 12 + 1, 1) - dt.timedelta(days=1))
             completo = ultimo_dia <= hoje - dt.timedelta(days=C.FWI_ATRASO_DIAS + 30)
             nome = f"mes_{ano}{mes:02d}"
-            if not completo:
-                (pasta / f"{nome}.npz").unlink(missing_ok=True)     # mês recente: sempre pede de novo
+            arq = pasta / f"{nome}.npz"
             r = None
             for tipo in ("consolidated_dataset", "intermediate_dataset"):
-                r = pedir(nome, tipo, ano, [mes])
+                # mês recente: pede de novo para pegar os dias novos, mas sem apagar o que já está guardado
+                r = pedir(nome, tipo, ano, [mes], refazer=not completo)
                 if not isinstance(r, str) and len(r[1]):
                     break
             if isinstance(r, str) or r is None or not len(r[1]):
-                log(f"   FWI {ano}-{mes:02d} indisponível: {str(r)[:200]}")
-                continue
-            if completo and not (pasta / f"{nome}.npz").exists():
-                np.savez(pasta / f"{nome}.npz", x=r[0], d=r[1], la=r[2], lo=r[3])
+                if arq.exists():                                   # Copernicus fora do ar: usa a última versão guardada
+                    z = np.load(arq)
+                    r = (z["x"], z["d"], z["la"], z["lo"])
+                    log(f"   FWI {ano}-{mes:02d}: Copernicus não respondeu; uso o que estava guardado (até {str(r[1][-1])})")
+                else:
+                    log(f"   FWI {ano}-{mes:02d} indisponível: {str(r)[:200]}")
+                    continue
+            elif not arq.exists() or not completo:
+                np.savez(arq, x=r[0], d=r[1], la=r[2], lo=r[3])
             partes.append(r)
     if not partes:
         raise RuntimeError("nenhum dado de FWI")

@@ -401,21 +401,18 @@ function faixaEnso() {
   if (!E || !E.serie || !E.serie.length) { fx.hidden = true; return; }
   const o = E.serie[E.serie.length - 1], at = E.atual, W = E.semanal, emCurso = at && at.em_curso && at.tipo !== 'La Niña';
   fx.hidden = false; fx.classList.toggle('neutro', !emCurso);
-  let estado;
-  if (emCurso) {
-    const prov = at.provisorio ? '<br>O alerta oficial já está em vigor. O que ainda falta é fechar a classificação histórica do evento, que pede 5 médias de 3 meses seguidas (sobrepostas, como mai–jul, jun–ago, jul–set…) acima de +0,5 °C, cobrindo 7 meses: falta(m) ' + (5 - at.trimestres) + '.' : '';
-    estado = '<span class="selo">El Niño</span><strong>El Niño ' + forcaNino(o.v) + ' em curso</strong><span class="det">Começou em ' + fmtMesL(at.inicio) +
-      (E.aviso ? ' · alerta oficial da NOAA em ' + fmtDataC(E.aviso) : '') + prov + '</span>';
-  } else estado = '<span class="selo">Pacífico equatorial</span><strong>' + (o.v >= 0.5 ? 'Águas mais quentes que o normal' : o.v <= -0.5 ? 'Águas mais frias que o normal (La Niña?)' : 'Sem El Niño ou La Niña') + '</strong><span class="det">Situação do El Niño–Oscilação Sul</span>';
-  let h = '<div class="estado">' + estado + '</div>' +
-    '<div class="med"><div class="n">' + num(o.v, 1, true) + ' °C</div><div class="r"><b>Índice oficial (' + (E.indice || 'RONI') + ')</b><br>média de ' + trimestre(o.t) + '</div></div>';
-  h += W ? '<div class="med"><div class="n">' + num(W.nino34, 1, true) + ' °C</div><div class="r"><b>Última semana</b><br>Niño 3.4, medida tradicional, semana de ' + fmtData(W.semana) + '</div></div>'
-    : '<div class="med"><div class="n">–</div><div class="r">valor semanal indisponível</div></div>';
-  h += '<details><summary>Entenda os números</summary><div class="explica">' +
-    '<p><strong>O que é.</strong> O El Niño é o aquecimento fora do normal das águas do Pacífico equatorial. Ele muda a circulação da atmosfera e, no centro do Brasil, costuma vir com temperaturas mais altas e chuva irregular. A referência internacional é a temperatura do mar na região <strong>Niño 3.4</strong>, no meio do Pacífico.</p>' +
-    '<p><strong>Índice oficial (RONI).</strong> Média de 3 meses da região Niño 3.4, descontado o aquecimento de todo o oceano tropical. A NOAA o adotou em fevereiro de 2026 porque o aquecimento global infla a medida antiga. Intensidade: fraco a partir de +0,5 °C; moderado, +1,0; forte, +1,5; muito forte, +2,0.</p>' +
-    '<p><strong>Valor semanal.</strong> Retrato da última semana, sem a média de 3 meses e sem descontar o aquecimento geral do oceano. Por isso é maior que o índice oficial: é o número acima de +3 °C que aparece nas notícias. Os dois estão certos; medem coisas diferentes.</p>' +
-    (W && W.nino12 != null ? '<p><strong>Junto à costa.</strong> Na região Niño 1+2, perto do Peru e do Equador, a anomalia semanal é de ' + num(W.nino12, 1, true) + ' °C. Ela mostra o aquecimento costeiro, mas não é usada para classificar o evento.</p>' : '') +
+  // faixa curta (uma linha); os detalhes ficam em "Entenda"
+  const desde = emCurso ? ' · desde ' + MESES[+at.inicio.slice(5, 7) - 1] + '/' + at.inicio.slice(0, 4) : '';
+  const tit = emCurso ? 'El Niño ' + forcaNino(o.v) + ' em curso' :
+    o.v >= 0.5 ? 'Pacífico equatorial mais quente que o normal' : o.v <= -0.5 ? 'Pacífico equatorial mais frio que o normal' : 'Sem El Niño ou La Niña';
+  let h = '<div class="enso-linha"><i class="ponto"></i><strong>' + tit + '</strong><span class="det">índice oficial ' + num(o.v, 1, true) + ' °C (' + trimestre(o.t) + ')' + desde + '</span></div>';
+  h += '<details><summary>Entenda</summary><div class="explica">' +
+    '<p><strong>O que é.</strong> O El Niño é o aquecimento fora do normal das águas do Pacífico equatorial. Ele muda a circulação da atmosfera e, no centro do Brasil, costuma vir com temperaturas mais altas e chuva irregular.</p>' +
+    '<p><strong>Índice oficial (' + (E.indice || 'RONI') + ').</strong> Temperatura do mar na região Niño 3.4, em média de 3 meses, descontado o aquecimento de todo o oceano tropical. Intensidade: fraco a partir de +0,5 °C; moderado, +1,0; forte, +1,5; muito forte, +2,0.</p>' +
+    (W ? '<p><strong>Última semana: ' + num(W.nino34, 1, true) + ' °C</strong> (semana de ' + fmtData(W.semana) + '). Medida tradicional, sem média de 3 meses e sem descontar o aquecimento do oceano; por isso é maior que o índice oficial e é o número que aparece nas notícias.' +
+      (W.nino12 != null ? ' Junto à costa do Peru (Niño 1+2): ' + num(W.nino12, 1, true) + ' °C.' : '') + '</p>' : '') +
+    (emCurso ? '<p><strong>Situação oficial.</strong> ' + (E.aviso ? 'Alerta de El Niño da NOAA em vigor desde ' + fmtDataC(E.aviso) + '. ' : '') +
+      (at.provisorio ? 'O registro na tabela histórica pede 5 médias de 3 meses seguidas acima de +0,5 °C; falta(m) ' + (5 - at.trimestres) + '.' : 'Evento já registrado pelo critério histórico da NOAA.') + '</p>' : '') +
     '</div></details>';
   fx.innerHTML = h;
 }
@@ -507,7 +504,7 @@ async function mapaAgora() {
   if ($('s-visao').hidden) return;
   mapaInterativo('agora-mapa', m, esc, { pontos: pts });
   if (esc) legendaMapa($('agora-mapa-leg'), esc, tit); else $('agora-mapa-leg').innerHTML = '';
-  $('agora-mapa-sub').textContent = sub;
+  $('agora-mapa-nota').textContent = sub;
 }
 function hidroResumo(reg) {
   const H = D.series.hidro && D.series.hidro.regioes[reg]; if (!H || !H.clim) return '<div class="det">sem dados</div>';

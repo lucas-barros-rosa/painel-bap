@@ -403,7 +403,7 @@ function faixaEnso() {
   fx.hidden = false; fx.classList.toggle('neutro', !emCurso);
   let estado;
   if (emCurso) {
-    const prov = at.provisorio ? '<br>Início provisório: o critério oficial pede 5 trimestres seguidos acima de +0,5 °C (faltam ' + (5 - at.trimestres) + ').' : '';
+    const prov = at.provisorio ? '<br>Início provisório: o critério oficial pede 5 médias de 3 meses seguidas (sobrepostas, como mai–jul, jun–ago, jul–set…) acima de +0,5 °C, o que cobre 7 meses. Faltam ' + (5 - at.trimestres) + '.' : '';
     estado = '<span class="selo">El Niño</span><strong>El Niño ' + forcaNino(o.v) + ' em curso</strong><span class="det">Começou em ' + fmtMesL(at.inicio) +
       (E.aviso ? ' · alerta oficial da NOAA em ' + fmtDataC(E.aviso) : '') + prov + '</span>';
   } else estado = '<span class="selo">Pacífico equatorial</span><strong>' + (o.v >= 0.5 ? 'Águas mais quentes que o normal' : o.v <= -0.5 ? 'Águas mais frias que o normal (La Niña?)' : 'Sem El Niño ou La Niña') + '</strong><span class="det">Situação do El Niño–Oscilação Sul</span>';
@@ -592,7 +592,7 @@ function seriesDesenhar() {
   const faixas = (E.eventos || []).filter(ev => ev.tipo === 'La Niña').map(ev => ({ i0: xe.indexOf(ev.inicio), i1: xe.indexOf(ev.fim), cor: COR.frio, ev: ev }))
     .map(f => { if (f.i0 < 0 && f.ev.inicio < xe[0] && f.ev.fim >= xe[0]) f.i0 = 0; if (f.i1 < 0 && f.ev.fim > xe[xe.length - 1]) f.i1 = xe.length - 1; return f; })
     .filter(f => f.i0 >= 0 && f.i1 >= 0);
-  $('enso-sub').textContent = 'Índice oficial da NOAA (' + (E.indice || 'RONI') + '), em médias de 3 meses: acima de +0,5 °C, águas do Pacífico equatorial mais quentes que o normal; abaixo de −0,5 °C, mais frias. Um evento exige pelo menos 5 trimestres seguidos além desses limites.';
+  $('enso-sub').textContent = 'Índice oficial da NOAA (' + (E.indice || 'RONI') + '), em médias de 3 meses: acima de +0,5 °C, águas do Pacífico equatorial mais quentes que o normal; abaixo de −0,5 °C, mais frias. Um evento exige pelo menos 5 médias de 3 meses seguidas (sobrepostas, cobrindo 7 meses) além desses limites.';
   legenda($('enso-leg'), [['índice acima de zero', COR.quente, 'caixa'], ['abaixo de zero', COR.frio, 'caixa'], itemEvento(), ['período de La Niña', COR.frio, 'fundo']]);
   grafico($('ser-enso'), { x: xe, series: [{ nome: E.indice || 'índice', tipo: 'barra', y: xe.map(m => val[m] == null ? null : val[m]), cor: COR.quente, corNeg: COR.frio }],
     un: '°C', casas: 1, sinal: true, eixoMeses: true, rotDica: m => 'média de ' + trimestre(m), h: 190, titulo: 'El Niño', eventos: eventosNino(xe), faixas: faixas });

@@ -45,6 +45,7 @@ ERA5L_ARCO = ("https://arco.datastores.ecmwf.int/cadl-arco-geo-007/arco/reanalys
 FUSO_HORAS = -4                        # dia local de MT/MS (UTC-4) para Tmax e Tmin diárias
 FUSO_ERA5 = "utc-04:00"                # o mesmo, no formato do CDS (dias recentes)
 ERA5_ATRASO_DIAS = 7                   # o ERA5-Land sai com ~5 dias de atraso; pedimos até hoje - 7
+ERA5_CAUDA_MIN_DIAS = 7                # só pede ao CDS se o Zarr estiver mais de tantos dias atrás
 ERA5_CAUDA_MESES_MAX = 3               # no máximo tantos meses recentes pedidos ao CDS (se o Zarr atrasar)
 
 # ----------------------------------------------------------------------------- previsão sazonal: C3S

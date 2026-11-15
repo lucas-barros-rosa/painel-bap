@@ -397,8 +397,9 @@ def era5land_cauda(ultimo):
     Se a fila do Copernicus não andar, devolve o que tiver; o resto entra numa próxima execução."""
     import time
     fim = np.datetime64(dt.date.today() - dt.timedelta(days=C.ERA5_ATRASO_DIAS))
-    if fim <= ultimo:
-        return None
+    if (fim - ultimo).astype(int) <= C.ERA5_CAUDA_MIN_DIAS:
+        return None                                    # o Zarr está quase em dia: não vale entrar na fila do CDS
+    log(f"   o Zarr está {(fim - ultimo).astype(int)} dias atrás; pedindo os dias recentes ao CDS (pode esperar na fila)")
     pasta = C.CACHE / "era5land"
     datas = np.arange(ultimo + 1, fim + 1)
     meses = sorted({(int(str(x)[:4]), int(str(x)[5:7])) for x in datas})[-C.ERA5_CAUDA_MESES_MAX:]

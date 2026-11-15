@@ -1,5 +1,6 @@
-/* Painel Hidroclimático da Bacia do Alto Paraguai — Lucas Barros da Rosa (University of British Columbia)
-   Sem bibliotecas externas: mapas em <canvas>, gráficos em SVG. Lê os arquivos de dados/ gerados pelo pipeline. */
+/* Painel Hidroclimático da Bacia do Alto Paraguai — Lucas Barros da Rosa (The University of British Columbia)
+   Gráficos em SVG feitos aqui; mapas interativos com Leaflet e mapas base da Esri (se o Leaflet não carregar,
+   os mapas viram imagens fixas em <canvas>). Lê os arquivos de dados/ gerados pelo pipeline. */
 (function () {
 'use strict';
 const $ = id => document.getElementById(id);
@@ -10,15 +11,26 @@ const fmtMesC = ym => MESES[+ym.slice(5, 7) - 1] + '/' + ym.slice(2, 4);
 const fmtMesL = ym => MESES_L[+ym.slice(5, 7) - 1] + ' de ' + ym.slice(0, 4);
 const fmtData = iso => iso.slice(8, 10) + '/' + iso.slice(5, 7);
 const fmtDataL = iso => +iso.slice(8, 10) + ' de ' + MESES_L[+iso.slice(5, 7) - 1];
+const fmtDataC = iso => iso.split('-').reverse().join('/');
 const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 const num = (v, c = 0, sinal = false) => v == null || !isFinite(v) ? '–' :
   (sinal && v > 0 ? '+' : '') + v.toLocaleString('pt-BR', { minimumFractionDigits: c, maximumFractionDigits: c }).replace('-', '−');
+const escuro = () => document.documentElement.dataset.tema !== 'claro';
+function trimestre(t) {                                 // mês central 'AAAA-MM' -> 'ago–out/2026'
+  const a = +t.slice(0, 4), m = +t.slice(5, 7), ini = (m + 10) % 12, fim = m % 12;
+  return MESES[ini] + '–' + MESES[fim] + '/' + (m === 12 ? a + 1 : a);
+}
+
+/* ---------- regiões: nomes por estado ---------- */
+const NOMES = { bap: ['Bacia do Alto Paraguai (toda)', 'Bacia toda'], pln: ['Planalto MT', 'Planalto MT'], ptn: ['Pantanal MT', 'Pantanal MT'],
+  pls: ['Planalto MS', 'Planalto MS'], pts: ['Pantanal MS', 'Pantanal MS'] };
 
 /* ---------- cores ---------- */
 const SECO = ['#8c510a', '#bf812d', '#dfc27d'], UMIDO = ['#80cdc1', '#35978f', '#01665e'];
 const FRIO = ['#2166ac', '#67a9cf', '#d1e5f0'], QUENTE = ['#fddbc7', '#ef8a62', '#b2182b'];
-const COR = { seco: '#bf812d', umido: '#35978f', frio: '#4393c3', quente: '#d6604d', calor: '#d95926',
-  cat: ['#2a78d6', '#eb6834', '#1baf7a', '#c98a00', '#e87ba4'] };
+const COR = { seco: '#bf812d', umido: '#35978f', frio: '#4393c3', quente: '#d6604d', calor: '#d95926' };
+const ANOS_COR = ['#6fa8dc', '#d8749a', '#5cbf9b', '#a58bd6', '#c9a55a', '#8fa6b2'];   // anos de comparação
+const corAtual = () => css('--acento');                                                // ano/série atual
 function hex2rgb(h) { return [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)); }
 function rampa(ancoras, n) {
   const out = [];
@@ -32,7 +44,7 @@ function rampa(ancoras, n) {
 function divergente(neg, pos, nLado) { return rampa(neg, nLado).concat([css('--meio')], rampa(pos, nLado)); }
 const ESC = {
   chuva_pct: { un: '%', casas: 0, q: [-80, -60, -40, -20, -10, 10, 20, 40, 60, 80], cores: () => divergente(SECO, UMIDO, 5), sinal: true },
-  pct_normal: { un: '% da normal', casas: 0, q: [20, 40, 60, 80, 90, 110, 120, 140, 160, 180], cores: () => divergente(SECO, UMIDO, 5) },
+  pct_normal: { un: '% do normal', casas: 0, q: [20, 40, 60, 80, 90, 110, 120, 140, 160, 180], cores: () => divergente(SECO, UMIDO, 5) },
   chuva_anom: { un: 'mm', casas: 0, q: [-150, -100, -50, -25, -10, 10, 25, 50, 100, 150], cores: () => divergente(SECO, UMIDO, 5), sinal: true },
   spi: { un: '', casas: 1, q: [-2, -1.5, -1, -0.5, 0.5, 1, 1.5, 2], cores: () => divergente(SECO, UMIDO, 4), sinal: true },
   temp: { un: '°C', casas: 1, q: [-4, -3, -2, -1, -0.5, 0.5, 1, 2, 3, 4], cores: () => divergente(FRIO, QUENTE, 5), sinal: true },
@@ -41,10 +53,10 @@ const ESC = {
   prev_temp: { un: '°C', casas: 2, q: [-2, -1.5, -1, -0.5, -0.25, 0.25, 0.5, 1, 1.5, 2], cores: () => divergente(FRIO, QUENTE, 5), sinal: true }
 };
 const VARS_MAPA = [
-  ['chuva_pct', 'Chuva: anomalia (%)', 'chuva_pct'], ['chuva_anom', 'Chuva: anomalia (mm)', 'chuva_anom'],
-  ['spi3', 'SPI-3 (seca, 3 meses)', 'spi'], ['spi6', 'SPI-6', 'spi'], ['spi12', 'SPI-12', 'spi'],
-  ['spei3', 'SPEI-3 (chuva − evapotranspiração)', 'spi'], ['spei6', 'SPEI-6', 'spi'], ['spei12', 'SPEI-12', 'spi'],
-  ['tmax_anom', 'Temperatura máxima: anomalia', 'temp'], ['tmed_anom', 'Temperatura média: anomalia', 'temp'],
+  ['chuva_pct', 'Chuva: diferença em relação à média (%)', 'chuva_pct'], ['chuva_anom', 'Chuva: diferença em relação à média (mm)', 'chuva_anom'],
+  ['spi3', 'SPI-3 (seca, 3 meses)', 'spi'], ['spi6', 'SPI-6 (seca, 6 meses)', 'spi'], ['spi12', 'SPI-12 (seca, 12 meses)', 'spi'],
+  ['spei3', 'SPEI-3 (chuva − evaporação, 3 meses)', 'spi'], ['spei6', 'SPEI-6', 'spi'], ['spei12', 'SPEI-12', 'spi'],
+  ['tmax_anom', 'Temperatura máxima: diferença em relação à média', 'temp'], ['tmed_anom', 'Temperatura média: diferença em relação à média', 'temp'],
   ['calor', 'Dias em onda de calor', 'calor']];
 function classe(v, q) { let i = 0; while (i < q.length && v >= q[i]) i++; return i; }
 const corDe = (v, esc) => ESC[esc].cores()[classe(v, ESC[esc].q)];
@@ -59,7 +71,7 @@ async function json(arq, opcional) {
 }
 const cacheMapas = {};
 function mapaJson(arq) { return cacheMapas[arq] || (cacheMapas[arq] = json('mapas/' + arq)); }
-const nomeReg = id => D.meta.regioes.find(r => r.id === id).nome;
+const nomeReg = id => (NOMES[id] || [D.meta.regioes.find(r => r.id === id).nome])[0];
 
 /* ---------- dica (tooltip) ---------- */
 const dica = $('dica-graf');
@@ -72,10 +84,12 @@ function mostraDica(html, x, y) {
 function escondeDica() { dica.hidden = true; }
 addEventListener('scroll', escondeDica, { passive: true });
 
-/* ---------- mapa em canvas ---------- */
+/* ---------- mapa fixo em canvas (mini-mapa e reserva sem Leaflet) ---------- */
 const EXT = { lon0: -60.4, lon1: -52.6, lat0: -13.2, lat1: -23.0 };
-const CIDADES = [['Cuiabá', -56.10, -15.60], ['Cáceres', -57.68, -16.07], ['Poconé', -56.62, -16.26], ['Rondonópolis', -54.64, -16.47],
-  ['Corumbá', -57.65, -19.01], ['Coxim', -54.76, -18.51], ['Campo Grande', -54.62, -20.47], ['Porto Murtinho', -57.88, -21.70]];
+const CIDADES = [['Cuiabá', -56.10, -15.60], ['Cáceres', -57.68, -16.07], ['Poconé', -56.62, -16.26], ['Barão de Melgaço', -55.97, -16.19],
+  ['Rondonópolis', -54.64, -16.47], ['Tangará da Serra', -57.49, -14.62], ['Diamantino', -56.44, -14.41], ['Coxim', -54.76, -18.51],
+  ['Rio Verde de MT', -54.84, -18.92], ['Corumbá', -57.65, -19.01], ['Aquidauana', -55.79, -20.47], ['Miranda', -56.38, -20.24],
+  ['Campo Grande', -54.62, -20.47], ['Bonito', -56.48, -21.13], ['Jardim', -56.14, -21.48], ['Porto Murtinho', -57.88, -21.70]];
 function desenhaMapa(canvas, m, esc, opc = {}) {
   const larg = canvas.parentElement.clientWidth, kx = Math.cos(18 * Math.PI / 180);
   const alt = Math.round(larg * (EXT.lat0 - EXT.lat1) / ((EXT.lon1 - EXT.lon0) * kx));
@@ -101,7 +115,7 @@ function desenhaMapa(canvas, m, esc, opc = {}) {
     else if (g.type === 'GeometryCollection') g.geometries.forEach(geom); };
   (D.geo ? D.geo.features : []).forEach(f => geom(f.geometry));
   if (!opc.semCidades) {
-    c.font = '11px system-ui,sans-serif'; c.textBaseline = 'middle';
+    c.font = '11px ' + css('--fonte'); c.textBaseline = 'middle';
     CIDADES.forEach(([n, lo, la]) => {
       const x = X(lo), y = Y(la);
       c.fillStyle = css('--sup'); c.beginPath(); c.arc(x, y, 3.6, 0, 7); c.fill();
@@ -115,12 +129,15 @@ function desenhaMapa(canvas, m, esc, opc = {}) {
     if (!m) return;
     const r = canvas.getBoundingClientRect();
     const lon = EXT.lon0 + (ev.clientX - r.left) / r.width * (EXT.lon1 - EXT.lon0), lat = EXT.lat0 - (ev.clientY - r.top) / r.height * (EXT.lat0 - EXT.lat1);
-    const i = Math.floor((lon - m.lon0) / m.d), j = Math.floor((m.lat0 - lat) / m.d);
-    const v = i >= 0 && j >= 0 && i < m.nx && j < m.ny ? m.v[j * m.nx + i] : null;
-    if (v == null) return escondeDica();
-    mostraDica('<b>' + num(v, esc.casas, esc.sinal) + ' ' + esc.un + '</b>' + num(Math.abs(lat), 2) + '°S, ' + num(Math.abs(lon), 2) + '°O', ev.clientX, ev.clientY);
+    dicaGrade(m, esc, lat, lon, ev.clientX, ev.clientY);
   };
   canvas.onpointerleave = escondeDica;
+}
+function dicaGrade(m, esc, lat, lon, x, y) {
+  const i = Math.floor((lon - m.lon0) / m.d), j = Math.floor((m.lat0 - lat) / m.d);
+  const v = i >= 0 && j >= 0 && i < m.nx && j < m.ny ? m.v[j * m.nx + i] : null;
+  if (v == null) return escondeDica();
+  mostraDica('<b>' + num(v, esc.casas, esc.sinal) + ' ' + esc.un + '</b>' + num(Math.abs(lat), 2) + '°S, ' + num(Math.abs(lon), 2) + '°O', x, y);
 }
 function legendaMapa(el, esc, titulo) {
   const cores = esc.cores(), q = esc.q, f = v => num(v, 2).replace(/,?0+$/, '');
@@ -132,6 +149,96 @@ function legendaMapa(el, esc, titulo) {
   el.innerHTML = h;
 }
 
+/* ---------- mapa interativo (Leaflet + Esri) ---------- */
+const ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services/';
+const BASES = {
+  cinza: { nome: 'Cinza', url: () => ESRI + (escuro() ? 'Canvas/World_Dark_Gray_Base' : 'Canvas/World_Light_Gray_Base') + '/MapServer/tile/{z}/{y}/{x}',
+    atrib: 'Esri, HERE, Garmin, © OpenStreetMap' },
+  relevo: { nome: 'Relevo', url: () => ESRI + 'Elevation/World_Hillshade' + (escuro() ? '_Dark' : '') + '/MapServer/tile/{z}/{y}/{x}',
+    atrib: 'Esri, USGS, NGA, NASA, CGIAR' },
+  satelite: { nome: 'Satélite', url: () => ESRI + 'World_Imagery/MapServer/tile/{z}/{y}/{x}', atrib: 'Esri, Maxar, Earthstar Geographics' }
+};
+let baseEscolhida = 'cinza';
+const MAPAS = {};
+const merc = la => Math.log(Math.tan(Math.PI / 4 + la * Math.PI / 360));
+const imerc = y => (2 * Math.atan(Math.exp(y)) - Math.PI / 2) * 180 / Math.PI;
+function imagemGrade(m, esc) {
+  // A imagem é feita em projeção de Mercator (a do mapa base), linha a linha, para os pixels caírem nas latitudes certas.
+  const ctxCor = document.createElement('canvas').getContext('2d');
+  const paleta = esc.cores().map(c => { ctxCor.fillStyle = c; return hex2rgb(ctxCor.fillStyle); });
+  const latN = m.lat0, latS = m.lat0 - m.ny * m.d, yN = merc(latN), yS = merc(latS);
+  const W = m.nx, H = Math.min(m.ny * 8, 2400);
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const c = cv.getContext('2d'), img = c.createImageData(W, H);
+  for (let r = 0; r < H; r++) {
+    const j = Math.min(m.ny - 1, Math.floor((latN - imerc(yN - (r + 0.5) / H * (yN - yS))) / m.d));
+    for (let i = 0; i < W; i++) {
+      const v = m.v[j * m.nx + i], k = (r * W + i) * 4;
+      if (v == null) { img.data[k + 3] = 0; continue; }
+      const cor = paleta[classe(v, esc.q)];
+      img.data[k] = cor[0]; img.data[k + 1] = cor[1]; img.data[k + 2] = cor[2]; img.data[k + 3] = 255;
+    }
+  }
+  c.putImageData(img, 0, 0);
+  return cv.toDataURL();
+}
+function mapaInterativo(id, m, esc) {
+  const el = $(id);
+  if (!window.L) {                                          // reserva: mapa fixo
+    el.classList.add('sem-base');
+    if (!el.querySelector('canvas')) el.innerHTML = '<div class="mapa-wrap"><canvas></canvas></div>';
+    desenhaMapa(el.querySelector('canvas'), m, esc);
+    return;
+  }
+  let o = MAPAS[id];
+  if (!o) {
+    const lim = L.latLngBounds([-23.6, -61.4], [-12.6, -51.6]), bacia = L.latLngBounds([EXT.lat1, EXT.lon0], [EXT.lat0, EXT.lon1]);
+    const map = L.map(el, { maxBounds: lim, maxBoundsViscosity: 1, zoomSnap: 0.25, zoomDelta: 0.5, wheelPxPerZoomLevel: 90, maxZoom: 12, attributionControl: true });
+    map.attributionControl.setPrefix('<a href="https://leafletjs.com" target="_blank" rel="noopener">Leaflet</a>');
+    map.createPane('dados').style.zIndex = 350;
+    map.createPane('limites').style.zIndex = 420; map.getPane('limites').style.pointerEvents = 'none';
+    map.createPane('cidades').style.zIndex = 440; map.getPane('cidades').style.pointerEvents = 'none';
+    o = MAPAS[id] = { map: map, bacia: bacia };
+    map.fitBounds(bacia, { padding: [6, 6] });
+    map.setMinZoom(Math.max(4, map.getZoom() - 0.5));
+    // botões: mapa base e voltar à bacia
+    const Ctl = L.Control.extend({ onAdd: () => {
+      const d = L.DomUtil.create('div', 'ctl-base');
+      d.innerHTML = Object.keys(BASES).map(k => '<button type="button" data-b="' + k + '">' + BASES[k].nome + '</button>').join('');
+      L.DomEvent.disableClickPropagation(d);
+      d.querySelectorAll('button').forEach(b => b.onclick = () => { baseEscolhida = b.dataset.b; Object.values(MAPAS).forEach(atualizaBase); });
+      o.ctlBase = d; return d; } });
+    new Ctl({ position: 'topright' }).addTo(map);
+    const Rec = L.Control.extend({ onAdd: () => {
+      const b = L.DomUtil.create('button', 'ctl-recentra'); b.type = 'button'; b.textContent = 'Ver a bacia toda';
+      L.DomEvent.disableClickPropagation(b); b.onclick = () => map.fitBounds(bacia, { padding: [6, 6] }); return b; } });
+    new Rec({ position: 'bottomleft' }).addTo(map);
+    // cidades
+    CIDADES.forEach(([n, lo, la]) => L.circleMarker([la, lo], { pane: 'cidades', radius: 3, weight: 1.5, color: '#fff', fillColor: '#222', fillOpacity: 1, interactive: false })
+      .bindTooltip(n, { permanent: true, direction: 'right', className: 'rot-cidade', offset: [3, 0] }).addTo(map));
+    const valor = e => { if (o.m) dicaGrade(o.m, o.esc, e.latlng.lat, e.latlng.lng, e.originalEvent.clientX, e.originalEvent.clientY); };
+    map.on('mousemove click', valor); map.on('mouseout movestart', escondeDica);
+  }
+  atualizaBase(o);
+  if (o.limites) o.map.removeLayer(o.limites);
+  o.limites = L.geoJSON(D.geo, { pane: 'limites', interactive: false, style: { color: css('--tinta'), weight: 1.4, opacity: 0.9, fill: false } }).addTo(o.map);
+  if (o.cam) o.map.removeLayer(o.cam);
+  o.cam = null; o.m = m; o.esc = esc;
+  if (m) o.cam = L.imageOverlay(imagemGrade(m, esc), [[m.lat0 - m.ny * m.d, m.lon0], [m.lat0, m.lon0 + m.nx * m.d]],
+    { pane: 'dados', opacity: 0.86, interactive: false, className: 'grade-pixel' }).addTo(o.map);
+  setTimeout(() => o.map.invalidateSize(), 0);
+}
+function atualizaBase(o) {
+  const chave = baseEscolhida + (escuro() ? '-e' : '-c');
+  if (o.chaveBase !== chave) {
+    if (o.base) o.map.removeLayer(o.base);
+    const B = BASES[baseEscolhida];
+    o.base = L.tileLayer(B.url(), { attribution: 'Mapa base: ' + B.atrib, maxZoom: 16, maxNativeZoom: baseEscolhida === 'relevo' ? 13 : 16 }).addTo(o.map);
+    o.chaveBase = chave;
+  }
+  if (o.ctlBase) o.ctlBase.querySelectorAll('button').forEach(b => b.classList.toggle('ativo', b.dataset.b === baseEscolhida));
+}
+
 /* ---------- gráfico SVG ---------- */
 function ticksBons(a, b, n) {
   const bruto = (b - a) / n, p = Math.pow(10, Math.floor(Math.log10(bruto))), f = bruto / p;
@@ -139,10 +246,20 @@ function ticksBons(a, b, n) {
   for (let v = Math.ceil(a / passo) * passo; v <= b + 1e-9; v += passo) out.push(Math.abs(v) < 1e-9 ? 0 : v);
   return out;
 }
-/* cfg: {x, series:[{nome,tipo:'barra'|'linha'|'banda'|'pontos'|'vazio',y,y2,cor,corNeg,esp,traco,marcas}],
-         un, casas, sinal, zero, h, ticksX, rotX, rotDica, marcos:[{i,rotulo}], faixas:[{i0,i1,cor}]} */
+function ticksMeses(x, pxMes) {                    // eixo de meses 'AAAA-MM': rótulos espaçados e marquinhas
+  const idx = ym => +ym.slice(0, 4) * 12 + (+ym.slice(5, 7) - 1);
+  const pr = [1, 3, 6, 12, 24, 60, 120].find(k => k * pxMes >= 48) || 120;
+  const pm = [1, 3, 12, 60].find(k => k * pxMes >= 5) || 60;
+  const maj = [], min = [];
+  x.forEach((ym, i) => { const k = idx(ym); if (k % pm === 0) min.push(i); if (k % pr === 0) maj.push(i); });
+  return { maj: maj, min: min, rot: pr >= 12 ? (ym => ym.slice(0, 4)) : fmtMesC };
+}
+/* cfg: {x, series:[{nome,tipo:'barra'|'linha'|'banda'|'pontos'|'vazio',y,y2,cor,corNeg,esp,traco,marcas,opac}], un, casas, sinal, zero, h,
+         eixoMeses (x = 'AAAA-MM'), ticksX, ticksMenores, rotX, rotDica, eventos:[{i0,i1,nome,abreAntes,abertoDepois}], faixas:[{i0,i1,cor}]} */
 function grafico(el, cfg) {
-  const W = Math.max(el.clientWidth, 280), H = cfg.h || 250, m = { l: 42, r: 12, t: cfg.marcos && cfg.marcos.length ? 22 : 10, b: 24 }, n = cfg.x.length;
+  const W = Math.max(el.clientWidth, 280), H = cfg.h || 250, n = cfg.x.length;
+  const temEv = cfg.eventos && cfg.eventos.length;
+  const m = { l: 44, r: 12, t: temEv ? 24 : 10, b: 26 };
   let lo = Infinity, hi = -Infinity;
   cfg.series.forEach(s => [s.y, s.y2].forEach(a => a && a.forEach(v => { if (v != null && isFinite(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v); } })));
   if (!isFinite(lo)) { el.innerHTML = '<p class="nota" style="padding:20px">Sem dados para esta seleção.</p>'; return; }
@@ -151,19 +268,40 @@ function grafico(el, cfg) {
   const folga = (hi - lo) * 0.06; lo -= lo < 0 || cfg.zero === false ? folga : 0; hi += folga;
   const tk = ticksBons(lo, hi, 5), passo = (W - m.l - m.r) / n;
   const X = i => m.l + (i + 0.5) * passo, Y = v => m.t + (hi - v) / (hi - lo) * (H - m.t - m.b);
-  const grade = css('--grade'), eixo = css('--eixo'), sup = css('--sup'), nino = css('--nino');
+  const grade = css('--grade'), eixo = css('--eixo'), sup = css('--sup'), nino = css('--nino'), base = H - m.b;
   let s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + (cfg.titulo || 'gráfico') + '">';
-  (cfg.faixas || []).forEach(f => { s += '<rect x="' + (X(f.i0) - passo / 2) + '" y="' + m.t + '" width="' + (X(f.i1) - X(f.i0) + passo) + '" height="' + (H - m.t - m.b) + '" fill="' + f.cor + '" opacity="0.12"/>'; });
+  // períodos de El Niño: faixa, barra no topo e marcas de início e fim
+  (cfg.eventos || []).forEach(ev => {
+    const x0 = X(ev.i0) - passo / 2, x1 = X(ev.i1) + passo / 2;
+    s += '<rect x="' + x0 + '" y="' + m.t + '" width="' + (x1 - x0) + '" height="' + (base - m.t) + '" fill="' + nino + '" opacity="0.08"/>';
+    s += '<rect x="' + x0 + '" y="' + (m.t - 5) + '" width="' + (x1 - x0) + '" height="3" rx="1.5" fill="' + nino + '" opacity="' + (ev.provisorio ? 0.5 : 0.9) + '"/>';
+    if (!ev.abreAntes) s += '<line x1="' + x0 + '" x2="' + x0 + '" y1="' + (m.t - 7) + '" y2="' + base + '" stroke="' + nino + '" stroke-width="1.3" opacity="0.75"/>';
+    if (!ev.abertoDepois) s += '<line x1="' + x1 + '" x2="' + x1 + '" y1="' + (m.t - 7) + '" y2="' + base + '" stroke="' + nino + '" stroke-width="1.3" opacity="0.75" stroke-dasharray="3 3"/>';
+    const largTxt = ev.nome.length * 5.6;
+    if (x1 - x0 >= largTxt + 6 || ev === cfg.eventos[cfg.eventos.length - 1]) {
+      const fim = x0 + largTxt + 4 > W - m.r;
+      s += '<text class="evento" x="' + (fim ? Math.min(x1, W - m.r) - 2 : x0 + 3) + '" y="' + (m.t - 9) + '" text-anchor="' + (fim ? 'end' : 'start') + '">' + ev.nome + '</text>';
+    }
+  });
+  (cfg.faixas || []).forEach(f => { s += '<rect x="' + (X(f.i0) - passo / 2) + '" y="' + m.t + '" width="' + (X(f.i1) - X(f.i0) + passo) + '" height="' + (base - m.t) + '" fill="' + f.cor + '" opacity="0.12"/>'; });
   tk.forEach(v => { s += '<line x1="' + m.l + '" x2="' + (W - m.r) + '" y1="' + Y(v) + '" y2="' + Y(v) + '" stroke="' + (v === 0 ? eixo : grade) + '" stroke-width="1"/>' +
-    '<text x="' + (m.l - 6) + '" y="' + (Y(v) + 4) + '" text-anchor="end">' + num(v, Math.abs(tk[1] - tk[0]) < 1 ? 1 : 0) + '</text>'; });
-  const tx = cfg.ticksX || (() => { const k = Math.max(1, Math.ceil(n / Math.max(3, Math.floor(W / 80)))), a = []; for (let i = n - 1; i >= 0; i -= k) a.push(i); return a; })();
-  tx.forEach(i => { s += '<text x="' + X(i) + '" y="' + (H - 7) + '" text-anchor="' + (!cfg.ticksX && X(i) > W - 34 ? 'end' : 'middle') + '">' + (cfg.rotX ? cfg.rotX(cfg.x[i], i) : cfg.x[i]) + '</text>'; });
+    '<text x="' + (m.l - 7) + '" y="' + (Y(v) + 4) + '" text-anchor="end">' + num(v, Math.abs(tk[1] - tk[0]) < 1 ? 1 : 0) + '</text>'; });
+  // eixo x: linha de base, marquinhas e rótulos
+  let maj, min, rotX = cfg.rotX;
+  if (cfg.eixoMeses) { const t = ticksMeses(cfg.x, passo); maj = t.maj; min = t.min; rotX = rotX || t.rot; }
+  else { maj = cfg.ticksX || (() => { const k = Math.max(1, Math.ceil(n / Math.max(3, Math.floor(W / 80)))), a = []; for (let i = n - 1; i >= 0; i -= k) a.push(i); return a; })(); min = cfg.ticksMenores || maj; }
+  s += '<line x1="' + m.l + '" x2="' + (W - m.r) + '" y1="' + base + '" y2="' + base + '" stroke="' + eixo + '" stroke-width="1"/>';
+  const xm = i => cfg.ticksMenores ? m.l + i * passo : X(i);                 // marcas de borda (dias do ano) ou de centro (meses)
+  min.forEach(i => { s += '<line x1="' + xm(i) + '" x2="' + xm(i) + '" y1="' + base + '" y2="' + (base + 3) + '" stroke="' + eixo + '"/>'; });
+  maj.forEach(i => { if (!cfg.ticksMenores) s += '<line x1="' + X(i) + '" x2="' + X(i) + '" y1="' + base + '" y2="' + (base + 6) + '" stroke="' + css('--mudo') + '"/>';
+    const borda = !cfg.ticksX && !cfg.eixoMeses && X(i) > W - 34;
+    s += '<text x="' + X(i) + '" y="' + (H - 6) + '" text-anchor="' + (borda ? 'end' : 'middle') + '">' + (rotX ? rotX(cfg.x[i], i) : cfg.x[i]) + '</text>'; });
   cfg.series.forEach(se => {
     if (se.tipo === 'banda') {
       let seg = [], d = '';
       const fecha = () => { if (seg.length > 1) d += 'M' + seg.map(i => X(i) + ',' + Y(se.y2[i])).join('L') + 'L' + seg.slice().reverse().map(i => X(i) + ',' + Y(se.y[i])).join('L') + 'Z'; seg = []; };
       for (let i = 0; i < n; i++) (se.y[i] != null && se.y2[i] != null) ? seg.push(i) : fecha();
-      fecha(); s += '<path d="' + d + '" fill="' + se.cor + '" opacity="0.2"/>';
+      fecha(); s += '<path d="' + d + '" fill="' + se.cor + '" opacity="' + (se.opac || 0.2) + '"/>';
     } else if (se.tipo === 'barra') {
       const bw = Math.max(1, Math.min(26, passo - (passo > 6 ? 2 : 0.5)));
       for (let i = 0; i < n; i++) { const v = se.y[i]; if (v == null) continue;
@@ -179,12 +317,7 @@ function grafico(el, cfg) {
         s += '<circle cx="' + X(i) + '" cy="' + Y(se.y[i]) + '" r="4" fill="' + se.cor + '" stroke="' + sup + '" stroke-width="2"/>';
     }
   });
-  (cfg.marcos || []).forEach(mc => {
-    const x = X(mc.i), esq = x > W * 0.7;
-    s += '<line x1="' + x + '" x2="' + x + '" y1="' + (m.t - 4) + '" y2="' + (H - m.b) + '" stroke="' + nino + '" stroke-width="1.6" stroke-dasharray="4 3"/>' +
-      '<text class="marco" x="' + (x + (esq ? -5 : 5)) + '" y="' + (m.t - 8) + '" text-anchor="' + (esq ? 'end' : 'start') + '">' + mc.rotulo + '</text>';
-  });
-  s += '<line id="cz" y1="' + m.t + '" y2="' + (H - m.b) + '" stroke="' + eixo + '" stroke-width="1" visibility="hidden"/></svg>';
+  s += '<line id="cz" y1="' + m.t + '" y2="' + base + '" stroke="' + eixo + '" stroke-width="1" visibility="hidden"/></svg>';
   el.innerHTML = s;
   const svg = el.firstChild, cz = svg.querySelector('#cz');
   const mover = ev => {
@@ -196,13 +329,27 @@ function grafico(el, cfg) {
       if (se.tipo === 'banda') { if (se.y[i] != null) h += '<div class="l"><span>' + se.nome + '</span><span>' + num(se.y[i], cfg.casas, cfg.sinal) + ' a ' + num(se.y2[i], cfg.casas, cfg.sinal) + '</span></div>'; }
       else if (se.y[i] != null) h += '<div class="l"><span><i class="chip" style="background:' + (se.y[i] < 0 && se.corNeg ? se.corNeg : se.cor) + '"></i>' + se.nome + '</span><span>' + num(se.y[i], cfg.casas, cfg.sinal) + (cfg.un ? ' ' + cfg.un : '') + '</span></div>';
     });
-    (cfg.marcos || []).forEach(mc => { if (mc.i === i) h += '<div class="l" style="color:' + nino + '"><span>' + mc.rotulo + '</span><span></span></div>'; });
+    (cfg.eventos || []).forEach(ev => { if (i >= ev.i0 && i <= ev.i1) h += '<div class="ev">' + ev.nome + (i === ev.i0 && !ev.abreAntes ? ' · início' : i === ev.i1 && !ev.abertoDepois ? ' · fim' : '') + '</div>'; });
     mostraDica(h, ev.clientX, ev.clientY);
   };
   svg.addEventListener('pointermove', mover); svg.addEventListener('pointerdown', mover);
   svg.addEventListener('pointerleave', () => { cz.setAttribute('visibility', 'hidden'); escondeDica(); });
 }
-function legenda(el, itens) { el.innerHTML = itens.map(([n, c, tipo]) => '<span' + (tipo === 'tr' ? ' style="color:' + c + '"' : '') + '><i class="' + (tipo === 1 ? 'cx' : tipo === 'tr' ? 'tr' : '') + '" style="background:' + c + '"></i>' + n + '</span>').join(''); }
+/* legenda: [nome, cor, tipo] — tipo: 'caixa' | 'linha' (padrão) | 'tracejada' | 'linha-ponto' | 'ponto' | 'vazio' | 'evento' */
+function legenda(el, itens) {
+  const ic = (c, t) => {
+    const sv = b => '<svg viewBox="0 0 20 12" aria-hidden="true">' + b + '</svg>';
+    if (t === 'caixa') return sv('<rect x="3" y="1" width="14" height="10" rx="2" fill="' + c + '" opacity="0.55"/>');
+    if (t === 'fundo') return sv('<rect x="2" y="0" width="16" height="12" fill="' + c + '" opacity="0.22"/>');
+    if (t === 'tracejada') return sv('<line x1="1" x2="19" y1="6" y2="6" stroke="' + c + '" stroke-width="2" stroke-dasharray="4 3"/>');
+    if (t === 'linha-ponto') return sv('<line x1="1" x2="19" y1="6" y2="6" stroke="' + c + '" stroke-width="3"/><circle cx="10" cy="6" r="3.6" fill="' + c + '" stroke="' + css('--sup') + '" stroke-width="1.5"/>');
+    if (t === 'ponto') return sv('<circle cx="10" cy="6" r="4" fill="' + c + '"/>');
+    if (t === 'vazio') return sv('<circle cx="10" cy="6" r="4" fill="' + css('--sup') + '" stroke="' + c + '" stroke-width="2.2"/>');
+    if (t === 'evento') return sv('<rect x="2" y="1" width="16" height="10" fill="' + c + '" opacity="0.18"/><rect x="2" y="0" width="16" height="2.4" fill="' + c + '"/><line x1="2" x2="2" y1="0" y2="12" stroke="' + c + '" stroke-width="1.3"/><line x1="18" x2="18" y1="0" y2="12" stroke="' + c + '" stroke-width="1.3" stroke-dasharray="2 2"/>');
+    return sv('<line x1="1" x2="19" y1="6" y2="6" stroke="' + c + '" stroke-width="' + (t === 'grossa' ? 3.2 : 2) + '" stroke-linecap="round"/>');
+  };
+  el.innerHTML = itens.map(([n, c, t]) => '<span>' + ic(c, t) + n + '</span>').join('');
+}
 function opcoes(sel, lista, valor) { sel.innerHTML = lista.map(([v, n]) => '<option value="' + v + '">' + n + '</option>').join(''); if (valor != null) sel.value = valor; }
 function tabela(el, cab, linhas) {
   el.innerHTML = '<table class="dados"><thead><tr>' + cab.map(c => '<th>' + c + '</th>').join('') + '</tr></thead><tbody>' +
@@ -215,55 +362,80 @@ function classeSeca(z) {
 }
 function forcaNino(v) { return v >= 2 ? 'muito forte' : v >= 1.5 ? 'forte' : v >= 1 ? 'moderado' : 'fraco'; }
 
-/* ---------- El Niño: marco nos gráficos ---------- */
-function ninoAtual() { return D.series.enso && D.series.enso.atual; }
-function marcosNino(x) {                       // x: lista 'AAAA-MM'
-  const e = ninoAtual(); if (!e) return [];
-  const i = x.indexOf(e.inicio);
-  return i >= 0 ? [{ i: i, rotulo: 'Início do El Niño (' + fmtMesC(e.inicio) + ')' }] : [];
+/* ---------- El Niño nos gráficos ---------- */
+function nomeEvento(ev) {
+  const a0 = ev.inicio.slice(0, 4), a1 = ev.fim.slice(0, 4);
+  if (ev.em_curso) return 'El Niño ' + a0 + (ev.provisorio ? ' (em curso, provisório)' : ' (em curso)');
+  return 'El Niño ' + a0 + (a1 !== a0 ? '–' + a1.slice(2) : '');
 }
+function eventosNino(x) {                        // períodos de El Niño que cruzam o eixo x ('AAAA-MM')
+  const E = D.series.enso; if (!E || !E.eventos || !x.length) return [];
+  const ini = x[0], fim = x[x.length - 1];
+  return E.eventos.filter(ev => ev.tipo === 'El Niño' && ev.fim >= ini && ev.inicio <= fim).map(ev => {
+    const i0 = ev.inicio < ini ? 0 : x.indexOf(ev.inicio);
+    const fimEv = ev.em_curso ? fim : ev.fim;                    // em curso: vai até o fim do eixo
+    const i1 = fimEv > fim ? x.length - 1 : x.indexOf(fimEv);
+    return { i0: i0, i1: i1 < 0 ? x.length - 1 : i1, nome: nomeEvento(ev), provisorio: ev.provisorio, abreAntes: ev.inicio < ini, abertoDepois: ev.em_curso || ev.fim > fim };
+  }).filter(e => e.i0 >= 0);
+}
+const itemEvento = () => ['El Niño: do início (linha cheia) ao fim (tracejada)', css('--nino'), 'evento'];
 
 /* ---------- Visão geral ---------- */
 let regAgora = 'bap';
+function faixaEnso() {
+  const E = D.series.enso, fx = $('faixa-enso');
+  if (!E || !E.serie || !E.serie.length) { fx.hidden = true; return; }
+  const o = E.serie[E.serie.length - 1], at = E.atual, W = E.semanal, emCurso = at && at.em_curso && at.tipo !== 'La Niña';
+  fx.hidden = false; fx.classList.toggle('neutro', !emCurso);
+  let estado;
+  if (emCurso) {
+    const prov = at.provisorio ? '<br>Início provisório: o critério oficial pede 5 trimestres seguidos acima de +0,5 °C (faltam ' + (5 - at.trimestres) + ').' : '';
+    estado = '<span class="selo">El Niño</span><strong>El Niño ' + forcaNino(o.v) + ' em curso</strong><span class="det">Começou em ' + fmtMesL(at.inicio) +
+      (E.aviso ? ' · alerta oficial da NOAA em ' + fmtDataC(E.aviso) : '') + prov + '</span>';
+  } else estado = '<span class="selo">Pacífico equatorial</span><strong>' + (o.v >= 0.5 ? 'Águas mais quentes que o normal' : o.v <= -0.5 ? 'Águas mais frias que o normal (La Niña?)' : 'Sem El Niño ou La Niña') + '</strong><span class="det">Situação do El Niño–Oscilação Sul</span>';
+  let h = '<div class="estado">' + estado + '</div>' +
+    '<div class="med"><div class="n">' + num(o.v, 1, true) + ' °C</div><div class="r"><b>Índice oficial (' + (E.indice || 'RONI') + ')</b><br>média de ' + trimestre(o.t) + '</div></div>';
+  h += W ? '<div class="med"><div class="n">' + num(W.nino34, 1, true) + ' °C</div><div class="r"><b>Última semana</b><br>Niño 3.4, medida tradicional, semana de ' + fmtData(W.semana) + '</div></div>'
+    : '<div class="med"><div class="n">–</div><div class="r">valor semanal indisponível</div></div>';
+  h += '<details><summary>Entenda os números</summary><div class="explica">' +
+    '<p><strong>O que é.</strong> O El Niño é o aquecimento fora do normal das águas do Pacífico equatorial. Ele muda a circulação da atmosfera e, no centro do Brasil, costuma vir com mais calor e chuva irregular. A referência internacional é a temperatura do mar na região <strong>Niño 3.4</strong>, no meio do Pacífico.</p>' +
+    '<p><strong>Índice oficial (RONI).</strong> Média de 3 meses da região Niño 3.4, descontado o aquecimento de todo o oceano tropical. A NOAA o adotou em fevereiro de 2026 porque o aquecimento global infla a medida antiga. Intensidade: fraco a partir de +0,5 °C; moderado, +1,0; forte, +1,5; muito forte, +2,0.</p>' +
+    '<p><strong>Valor semanal.</strong> Retrato da última semana, sem a média de 3 meses e sem descontar o aquecimento geral do oceano. Por isso é maior que o índice oficial: é o número acima de +3 °C que aparece nas notícias. Os dois estão certos; medem coisas diferentes.</p>' +
+    (W && W.nino12 != null ? '<p><strong>Junto à costa.</strong> Na região Niño 1+2, perto do Peru e do Equador, a anomalia semanal é de ' + num(W.nino12, 1, true) + ' °C. Ela mostra o aquecimento costeiro, mas não é usada para classificar o evento.</p>' : '') +
+    '</div></details>';
+  fx.innerHTML = h;
+}
 function visao() {
-  const S = D.series, M = S.meses, bap = S.regioes.bap, E = S.enso;
-  // faixa do El Niño
-  const fx = $('faixa-enso');
-  if (E && E.serie && E.serie.length) {
-    const o = E.serie[E.serie.length - 1], at = E.atual;
-    fx.hidden = false;
-    fx.innerHTML = at && at.em_curso
-      ? '<span class="selo">EL NIÑO EM CURSO</span><span class="num">' + num(o.v, 1, true) + ' °C</span><span class="txt">' + E.indice + ' no trimestre centrado em ' + fmtMes(o.t) +
-        ' · intensidade ' + forcaNino(o.v) + ' · início em ' + fmtMesL(at.inicio) + ' (critério NOAA/CPC)' + (E.aviso ? '; alerta oficial da NOAA em ' + E.aviso.split('-').reverse().join('/') : '') + '</span>'
-      : '<span class="selo" style="background:var(--mudo)">ENSO</span><span class="num" style="color:var(--tinta)">' + num(o.v, 1, true) + ' °C</span><span class="txt">' + E.indice + ' no trimestre centrado em ' + fmtMes(o.t) + '</span>';
-  }
+  const S = D.series, M = S.meses, bap = S.regioes.bap;
+  faixaEnso();
   // últimos dias
   const A = D.agora;
   const seg = $('agora-reg');
-  seg.innerHTML = D.meta.regioes.map(r => '<button data-r="' + r.id + '"' + (r.id === regAgora ? ' class="ativo"' : '') + '>' + (r.curto || r.nome) + '</button>').join('');
+  seg.innerHTML = D.meta.regioes.map(r => '<button type="button" data-r="' + r.id + '"' + (r.id === regAgora ? ' class="ativo"' : '') + '>' + (NOMES[r.id] || [0, r.nome])[1] + '</button>').join('');
   seg.querySelectorAll('button').forEach(b => b.onclick = () => { regAgora = b.dataset.r; visao(); });
   if (A) {
     const r = A.regioes[regAgora], partes = [];
-    if (A.chuva) partes.push('chuva até ' + fmtDataL(A.chuva.ate) + (A.chuva.preliminar_desde ? ' (preliminar desde ' + fmtData(A.chuva.preliminar_desde) + ')' : ''));
+    if (A.chuva) partes.push('Chuva até ' + fmtDataL(A.chuva.ate) + (A.chuva.preliminar_desde ? ' (dados preliminares desde ' + fmtData(A.chuva.preliminar_desde) + ')' : ''));
     if (A.temp) partes.push('temperatura até ' + fmtDataL(A.temp.ate));
-    $('agora-sub').textContent = partes.join(' · ');
+    $('agora-sub').textContent = nomeReg(regAgora) + ' · ' + partes.join(' · ');
     const tileChuva = (k, n) => {
       const c = r[k]; if (!c) return '';
       const pct = c.pct, larg = Math.min(100, (pct || 0) / 2);
+      const frase = pct == null ? '' : pct < 90 ? 'abaixo do normal' : pct > 110 ? 'acima do normal' : 'perto do normal';
       return '<div class="tile"><div class="rot">Chuva nos últimos ' + n + ' dias</div>' +
-        '<div class="val">' + chip(pct, 'pct_normal') + num(pct) + '%</div><div class="barra"><i style="width:' + larg + '%;background:' + corDe(pct, 'pct_normal') + '"></i><b style="left:50%"></b></div>' +
-        '<div class="det">' + (A.chuva.preliminar_desde ? '<span class="tag">preliminar</span>' : '') + num(c.mm) + ' mm; normal ' + num(c.normal) + ' mm</div></div>';
+        '<div class="val">' + chip(pct, 'pct_normal') + num(pct) + '%<small>do normal</small></div><div class="barra"><i style="width:' + larg + '%;background:' + corDe(pct, 'pct_normal') + '"></i><b style="left:50%"></b></div>' +
+        '<div class="det">' + (A.chuva.preliminar_desde ? '<span class="tag">preliminar</span>' : '') + 'Choveram ' + num(c.mm) + ' mm; o normal para estes ' + n + ' dias é ' + num(c.normal) + ' mm (' + frase + ').</div></div>';
     };
     let t = tileChuva('chuva30', 30) + tileChuva('chuva90', 90);
-    if (r.calor_mes) t += '<div class="tile"><div class="rot">Dias em onda de calor em ' + MESES_L[+A.temp.mes.slice(5) - 1] + '</div><div class="val">' + chip(r.calor_mes.dias, 'calor') + num(r.calor_mes.dias, 1) + '</div>' +
-      '<div class="det">até o dia ' + A.temp.dia + '; normal até essa data: ' + num(r.calor_mes.normal, 1) + '</div></div>';
-    if (r.tmax30_anom != null) t += '<div class="tile"><div class="rot">Temperatura máxima, últimos 30 dias</div><div class="val">' + chip(r.tmax30_anom, 'temp') + num(r.tmax30_anom, 1, true) + ' °C</div>' +
-      '<div class="det">em relação à média de 1991–2020</div></div>';
+    if (r.calor_mes) t += '<div class="tile"><div class="rot">Dias em onda de calor em ' + MESES_L[+A.temp.mes.slice(5) - 1] + '</div><div class="val">' + chip(r.calor_mes.dias, 'calor') + num(r.calor_mes.dias, 1) + '<small>dias</small></div>' +
+      '<div class="det">Até o dia ' + A.temp.dia + '. O normal até essa data é ' + num(r.calor_mes.normal, 1) + ' dia(s).</div></div>';
+    if (r.tmax30_anom != null) t += '<div class="tile"><div class="rot">Temperatura máxima, 30 dias</div><div class="val">' + chip(r.tmax30_anom, 'temp') + num(r.tmax30_anom, 1, true) + ' °C</div>' +
+      '<div class="det">' + (r.tmax30_anom >= 0 ? 'Mais quente' : 'Mais fria') + ' que a média de 1991–2020 para a época.</div></div>';
     $('agora-tiles').innerHTML = t;
     const mp = A.mapa_chuva30;
     if (mp) {
       desenhaMapa($('agora-mapa'), mp, ESC.pct_normal, { semCidades: true });
-      $('agora-mapa-leg').innerHTML = 'Chuva de ' + fmtData(mp.de) + ' a ' + fmtData(mp.ate) + ' em % da normal. ' +
+      $('agora-mapa-leg').innerHTML = 'Chuva de ' + fmtData(mp.de) + ' a ' + fmtData(mp.ate) + ', em % do normal. ' +
         '<span style="color:' + COR.seco + ';font-weight:600">Marrom</span>: abaixo; <span style="color:' + COR.umido + ';font-weight:600">verde-azulado</span>: acima.';
     } else $('agora-mapa').parentElement.parentElement.hidden = true;
   } else {
@@ -274,31 +446,32 @@ function visao() {
   const ic = ultimoIdx(bap.chuva), it = ultimoIdx(bap.tmax_anom);
   $('mes-titulo').textContent = 'Último mês completo: ' + fmtMesL(M[ic]) + (it !== ic ? ' (temperatura: ' + fmtMesL(M[it]) + ')' : '');
   const s = S.regioes[regAgora], j6 = ultimoIdx(s.spei6);
-  $('mes-sub').textContent = nomeReg(regAgora) + ' · anomalias em relação a 1991–2020';
+  $('mes-sub').textContent = nomeReg(regAgora) + ' · comparação com a média de 1991–2020';
   const tile = (rot, val, c, det) => '<div class="tile"><div class="rot">' + rot + '</div><div class="val">' + (c || '') + val + '</div><div class="det">' + det + '</div></div>';
+  const pc = s.chuva_pct[ic];
   $('cartoes').innerHTML =
-    tile('Chuva no mês', num(s.chuva_pct[ic], 0, true) + '%', chip(s.chuva_pct[ic], 'chuva_pct'), num(s.chuva[ic]) + ' mm; média ' + num(s.chuva_clim[ic]) + ' mm') +
+    tile('Chuva no mês', num(pc, 0, true) + '%', chip(pc, 'chuva_pct'), (pc == null ? '' : Math.abs(pc) < 10 ? 'Perto da média. ' : num(Math.abs(pc)) + '% ' + (pc < 0 ? 'abaixo' : 'acima') + ' da média. ') + num(s.chuva[ic]) + ' mm; média ' + num(s.chuva_clim[ic]) + ' mm.') +
     tile('Seca em 3 meses (SPI-3)', num(s.spi3[ic], 1, true), chip(s.spi3[ic], 'spi'), classeSeca(s.spi3[ic])) +
-    tile('Seca em 6 meses (SPEI-6)', num(s.spei6[j6], 1, true), chip(s.spei6[j6], 'spi'), classeSeca(s.spei6[j6])) +
-    tile('Temperatura máxima', num(s.tmax_anom[it], 1, true) + ' °C', chip(s.tmax_anom[it], 'temp'), 'média do mês: ' + num(s.tmax[it], 1) + ' °C') +
-    tile('Dias em onda de calor', num(s.calor[it], 1), chip(s.calor[it], 'calor'), 'normal: ' + num(s.calor_clim[it], 1));
+    tile('Seca em 6 meses (SPEI-6)', num(s.spei6[j6], 1, true), chip(s.spei6[j6], 'spi'), classeSeca(s.spei6[j6]) + ', considerando também a evaporação') +
+    tile('Temperatura máxima', num(s.tmax_anom[it], 1, true) + ' °C', chip(s.tmax_anom[it], 'temp'), 'Diferença em relação à média. Média do mês: ' + num(s.tmax[it], 1) + ' °C.') +
+    tile('Dias em onda de calor', num(s.calor[it], 1), chip(s.calor[it], 'calor'), 'O normal para o mês é ' + num(s.calor_clim[it], 1) + '.');
   // atalhos
   let at = '';
   (D.rio.estacoes || []).slice(0, 1).forEach(e => { const med = e.clim.p50[diaAno(e.ultimo.data)];
-    at += '<a class="atalho" href="#rio" style="--c:#13809a"><div class="rot">Rio Paraguai em ' + e.nome + '</div><div class="val">' + num(e.ultimo.cm) + ' cm</div><div class="det">' +
-      (med != null ? num(e.ultimo.cm - med, 0, true) + ' cm em relação à mediana · ' : '') + e.ultimo.data.split('-').reverse().join('/') + '</div><span class="ir">Ver o rio →</span></a>'; });
+    at += '<a class="atalho" href="#rio" style="--c:var(--agua)"><div class="rot">Rio Paraguai em ' + e.nome + '</div><div class="val">' + num(e.ultimo.cm) + ' cm</div><div class="det">' +
+      (med != null ? num(e.ultimo.cm - med, 0, true) + ' cm em relação à mediana do dia · ' : '') + fmtDataC(e.ultimo.data) + '</div><span class="ir">Ver o rio →</span></a>'; });
   const mp = D.prev.modelos[0];
-  if (mp) { const r = mp.regioes.bap, soma = r.chuva.media.slice(0, 3).reduce((a, b) => a + (b || 0), 0);
-    at += '<a class="atalho" href="#previsao" style="--c:#7656c2"><div class="rot">Previsão de chuva, ' + fmtMes(mp.alvos[0]) + ' a ' + fmtMes(mp.alvos[2]) + '</div><div class="val">' + num(soma, 0, true) + ' mm</div>' +
-      '<div class="det">anomalia somada nos 3 meses · ' + mp.nome + '</div><span class="ir">Ver a previsão →</span></a>'; }
-  at += '<a class="atalho" href="#series" style="--c:#d65a22"><div class="rot">Chuva acumulada desde outubro · ' + nomeReg(regAgora) + '</div>' + hidroResumo(regAgora) + '<span class="ir">Ver as séries →</span></a>';
+  if (mp) { const r = mp.regioes[regAgora] || mp.regioes.bap, soma = r.chuva.media.slice(0, 3).reduce((a, b) => a + (b || 0), 0);
+    at += '<a class="atalho" href="#previsao" style="--c:var(--acento)"><div class="rot">Previsão de chuva, ' + fmtMes(mp.alvos[0]) + ' a ' + fmtMes(mp.alvos[2]) + '</div><div class="val">' + num(soma, 0, true) + ' mm</div>' +
+      '<div class="det">diferença em relação à média, somada nos 3 meses · ' + mp.nome + '</div><span class="ir">Ver a previsão →</span></a>'; }
+  at += '<a class="atalho" href="#series" style="--c:var(--nino)"><div class="rot">Chuva acumulada desde outubro</div>' + hidroResumo(regAgora) + '<span class="ir">Ver as séries →</span></a>';
   $('atalhos').innerHTML = at;
 }
 function hidroResumo(reg) {
   const H = D.series.hidro && D.series.hidro.regioes[reg]; if (!H || !H.clim) return '<div class="det">sem dados</div>';
   const p = H.parcial;
   if (p) { const med = H.clim.p50[p.indice];
-    return '<div class="val">' + num(p.valor) + ' mm</div><div class="det">ano ' + p.ano + ' até ' + fmtData(p.ate) + (p.preliminar ? ' (preliminar)' : '') + '; mediana ao fim de ' + MESES[(D.series.hidro.mes_inicio - 1 + p.indice) % 12] + ': ' + num(med) + ' mm</div>'; }
+    return '<div class="val">' + num(p.valor) + ' mm</div><div class="det">ano ' + p.ano + ', até ' + fmtData(p.ate) + (p.preliminar ? ' (preliminar)' : '') + '; mediana até o fim de ' + MESES_L[(D.series.hidro.mes_inicio - 1 + p.indice) % 12] + ': ' + num(med) + ' mm</div>'; }
   const anos = Object.keys(H.anos), ult = anos[anos.length - 1], c = H.anos[ult], k = ultimoIdx(c);
   return '<div class="val">' + num(c[k]) + ' mm</div><div class="det">ano ' + ult + '; mediana no mesmo ponto: ' + num(H.clim.p50[k]) + ' mm</div>';
 }
@@ -313,28 +486,28 @@ function mapasIniciar() {
   $('mapa-var').onchange = mudaVar; $('mapa-mes').onchange = mapasDesenhar;
   const passo = d => { const s = $('mapa-mes'), i = s.selectedIndex - d; if (i >= 0 && i < s.options.length) { s.selectedIndex = i; mapasDesenhar(); } };
   $('mapa-ant').onclick = () => passo(-1); $('mapa-prox').onclick = () => passo(1);
-  mudaVar();
+  const ms = D.meta.mapas[$('mapa-var').value]; if (ms) opcoes($('mapa-mes'), ms.slice().reverse().map(m => [m, fmtMes(m)]), ms[ms.length - 1]);
 }
 async function mapasDesenhar() {
   const v = VARS_MAPA.find(x => x[0] === $('mapa-var').value), mes = $('mapa-mes').value;
   if (!v || !mes) return;
   const esc = ESC[v[2]], m = await mapaJson(v[0] + '_' + mes + '.json');
-  if ($('mapa-var').value !== v[0] || $('mapa-mes').value !== mes) return;
-  desenhaMapa($('mapa'), m, esc);
-  legendaMapa($('mapa-leg'), esc, v[1] + (esc.un && v[1].indexOf('(') < 0 ? ' (' + esc.un + ')' : '') + ' — ' + fmtMes(mes));
-  $('mapa-nota').textContent = (v[2] === 'calor' ? 'Número de dias do mês em onda de calor (CTX90pct). ' : 'Anomalia em relação a 1991–2020. ') +
-    'Grade de ' + num(m.d, 2) + '° (' + (m.d < 0.08 ? 'CHIRPS' : 'ERA5-Land') + '). Toque no mapa para ver o valor.';
+  if ($('mapa-var').value !== v[0] || $('mapa-mes').value !== mes || $('s-mapas').hidden) return;
+  mapaInterativo('mapa', m, esc);
+  legendaMapa($('mapa-leg'), esc, v[1] + (esc.un && v[1].indexOf('(') < 0 ? ' (' + esc.un + ')' : '') + ' — ' + fmtMesL(mes));
+  $('mapa-nota').textContent = (v[2] === 'calor' ? 'Número de dias do mês em onda de calor (CTX90pct). ' : v[2] === 'spi' ? 'Índice de seca: abaixo de −1, seca moderada; abaixo de −2, seca extrema. ' : 'Diferença em relação à média de 1991–2020. ') +
+    'Cada quadradinho tem ' + num(m.d, 2) + '° de lado, cerca de ' + num(m.d * 111, 0) + ' km (' + (m.d < 0.08 ? 'CHIRPS' : 'ERA5-Land') + '). Linhas: limites da bacia, do Pantanal e da divisa MT/MS.';
 }
 
 /* ---------- Séries ---------- */
 const VARS_SERIE = [
-  ['chuva_pct', 'Chuva: anomalia (%)', 'sinal', '%', 0, 'seco'], ['chuva', 'Chuva: total e média (mm)', 'clim', 'mm', 0, 'chuva_clim'],
-  ['spi3', 'SPI-3', 'sinal', '', 2, 'seco'], ['spi6', 'SPI-6', 'sinal', '', 2, 'seco'], ['spi12', 'SPI-12', 'sinal', '', 2, 'seco'], ['spi1', 'SPI-1', 'sinal', '', 2, 'seco'],
-  ['spei3', 'SPEI-3', 'sinal', '', 2, 'seco'], ['spei6', 'SPEI-6', 'sinal', '', 2, 'seco'], ['spei12', 'SPEI-12', 'sinal', '', 2, 'seco'], ['spei1', 'SPEI-1', 'sinal', '', 2, 'seco'],
-  ['tmax_anom', 'Temperatura máxima: anomalia (°C)', 'sinal', '°C', 1, 'temp'], ['tmed_anom', 'Temperatura média: anomalia (°C)', 'sinal', '°C', 1, 'temp'],
-  ['tmin_anom', 'Temperatura mínima: anomalia (°C)', 'sinal', '°C', 1, 'temp'], ['calor', 'Dias em onda de calor', 'clim', 'dias', 1, 'calor_clim']];
+  ['chuva_pct', 'Chuva: diferença em relação à média (%)', 'sinal', '%', 0, 'seco'], ['chuva', 'Chuva: total do mês e média (mm)', 'clim', 'mm', 0, 'chuva_clim'],
+  ['spi3', 'SPI-3 (seca, 3 meses)', 'sinal', '', 2, 'seco'], ['spi6', 'SPI-6 (seca, 6 meses)', 'sinal', '', 2, 'seco'], ['spi12', 'SPI-12 (seca, 12 meses)', 'sinal', '', 2, 'seco'], ['spi1', 'SPI-1 (seca, 1 mês)', 'sinal', '', 2, 'seco'],
+  ['spei3', 'SPEI-3 (chuva − evaporação, 3 meses)', 'sinal', '', 2, 'seco'], ['spei6', 'SPEI-6', 'sinal', '', 2, 'seco'], ['spei12', 'SPEI-12', 'sinal', '', 2, 'seco'], ['spei1', 'SPEI-1', 'sinal', '', 2, 'seco'],
+  ['tmax_anom', 'Temperatura máxima: diferença em relação à média (°C)', 'sinal', '°C', 1, 'temp'], ['tmed_anom', 'Temperatura média: diferença em relação à média (°C)', 'sinal', '°C', 1, 'temp'],
+  ['tmin_anom', 'Temperatura mínima: diferença em relação à média (°C)', 'sinal', '°C', 1, 'temp'], ['calor', 'Dias em onda de calor', 'clim', 'dias', 1, 'calor_clim']];
 function seriesIniciar() {
-  opcoes($('ser-reg'), D.meta.regioes.map(r => [r.id, r.nome]));
+  opcoes($('ser-reg'), D.meta.regioes.map(r => [r.id, nomeReg(r.id)]));
   opcoes($('ser-var'), VARS_SERIE.map(v => [v[0], v[1]]));
   ['ser-reg', 'ser-var', 'ser-per'].forEach(id => $(id).onchange = seriesDesenhar);
 }
@@ -345,18 +518,17 @@ function seriesDesenhar() {
   let series, leg;
   if (v[2] === 'sinal') {
     const [neg, pos, rn, rp] = v[5] === 'temp' ? [COR.frio, COR.quente, 'abaixo da média', 'acima da média'] : [COR.seco, COR.umido, 'mais seco que a média', 'mais úmido que a média'];
-    series = [{ nome: v[1].split(':')[0], tipo: 'barra', y: corta(s[v[0]]), cor: pos, corNeg: neg }]; leg = [[rn, neg, 1], [rp, pos, 1]];
+    series = [{ nome: v[1].split(':')[0].split(' (')[0], tipo: 'barra', y: corta(s[v[0]]), cor: pos, corNeg: neg }]; leg = [[rn, neg, 'caixa'], [rp, pos, 'caixa']];
   } else {
-    const cor = v[0] === 'calor' ? COR.calor : COR.cat[0];
+    const cor = v[0] === 'calor' ? COR.calor : css('--agua');
     series = [{ nome: 'observado', tipo: 'barra', y: corta(s[v[0]]), cor: cor }, { nome: 'média 1991–2020', tipo: 'linha', y: corta(s[v[5]]), cor: css('--tinta2'), esp: 2 }];
-    leg = [['observado', cor, 1], ['média 1991–2020', css('--tinta2')]];
+    leg = [['observado', cor, 'caixa'], ['média 1991–2020', css('--tinta2')]];
   }
-  const marcos = marcosNino(x);
-  if (marcos.length) leg.push(['início do El Niño', css('--nino'), 'tr']);
+  const eventos = eventosNino(x);
+  if (eventos.length) leg.push(itemEvento());
   $('ser-titulo').textContent = v[1] + ' — ' + nomeReg(reg);
   legenda($('ser-leg'), leg);
-  const rotX = ym => x.length > 72 ? ym.slice(0, 4) : fmtMesC(ym);
-  grafico($('ser-graf'), { x: x, series: series, un: v[3], casas: v[4], sinal: v[2] === 'sinal', rotX: rotX, rotDica: fmtMes, titulo: v[1], marcos: marcos });
+  grafico($('ser-graf'), { x: x, series: series, un: v[3], casas: v[4], sinal: v[2] === 'sinal', eixoMeses: true, rotDica: fmtMes, titulo: v[1], eventos: eventos });
   tabela($('ser-tab'), ['Mês'].concat(series.map(q => q.nome)), x.map((m, i) => [fmtMes(m)].concat(series.map(q => num(q.y[i], v[4], v[2] === 'sinal')))).reverse());
   // El Niño / La Niña
   const E = S.enso || { serie: [], eventos: [] }, val = {};
@@ -364,14 +536,13 @@ function seriesDesenhar() {
   const xe = x.slice();                                  // estende até o último trimestre do índice
   const ultE = E.serie.length ? E.serie[E.serie.length - 1].t : null;
   while (ultE && xe[xe.length - 1] < ultE) { const [a, mm] = xe[xe.length - 1].split('-').map(Number); xe.push(mm === 12 ? (a + 1) + '-01' : a + '-' + String(mm + 1).padStart(2, '0')); }
-  const faixas = (E.eventos || []).map(ev => ({ i0: xe.indexOf(ev.inicio), i1: xe.indexOf(ev.fim), cor: ev.tipo === 'El Niño' ? COR.quente : COR.frio, ev: ev }))
+  const faixas = (E.eventos || []).filter(ev => ev.tipo === 'La Niña').map(ev => ({ i0: xe.indexOf(ev.inicio), i1: xe.indexOf(ev.fim), cor: COR.frio, ev: ev }))
     .map(f => { if (f.i0 < 0 && f.ev.inicio < xe[0] && f.ev.fim >= xe[0]) f.i0 = 0; if (f.i1 < 0 && f.ev.fim > xe[xe.length - 1]) f.i1 = xe.length - 1; return f; })
     .filter(f => f.i0 >= 0 && f.i1 >= 0);
-  $('enso-sub').textContent = (E.indice || 'índice') + ', NOAA/CPC; faixas: eventos pelo critério oficial (≥ 5 trimestres além de ±0,5 °C)';
-  legenda($('enso-leg'), [['El Niño', COR.quente, 1], ['La Niña', COR.frio, 1]].concat(marcosNino(xe).length ? [['início do El Niño atual', css('--nino'), 'tr']] : []));
+  $('enso-sub').textContent = 'Índice oficial da NOAA (' + (E.indice || 'RONI') + '), em médias de 3 meses: acima de +0,5 °C, águas do Pacífico equatorial mais quentes que o normal; abaixo de −0,5 °C, mais frias. Um evento exige pelo menos 5 trimestres seguidos além desses limites.';
+  legenda($('enso-leg'), [['índice acima de zero', COR.quente, 'caixa'], ['abaixo de zero', COR.frio, 'caixa'], itemEvento(), ['período de La Niña', COR.frio, 'fundo']]);
   grafico($('ser-enso'), { x: xe, series: [{ nome: E.indice || 'índice', tipo: 'barra', y: xe.map(m => val[m] == null ? null : val[m]), cor: COR.quente, corNeg: COR.frio }],
-    un: '°C', casas: 1, sinal: true, rotX: ym => xe.length > 72 ? ym.slice(0, 4) : fmtMesC(ym), rotDica: m => 'trimestre centrado em ' + fmtMes(m), h: 170, titulo: 'El Niño',
-    marcos: marcosNino(xe), faixas: faixas });
+    un: '°C', casas: 1, sinal: true, eixoMeses: true, rotDica: m => 'média de ' + trimestre(m), h: 190, titulo: 'El Niño', eventos: eventosNino(xe), faixas: faixas });
   hidroDesenhar(reg);
 }
 function hidroDesenhar(reg) {
@@ -379,28 +550,30 @@ function hidroDesenhar(reg) {
   if (!R || !R.clim) { $('hidro-graf').innerHTML = '<p class="nota">Sem dados.</p>'; return; }
   const x = H.meses.map(m => MESES[+m - 1]);
   const anos = Object.keys(R.anos), atual = R.parcial ? R.parcial.ano : anos[anos.length - 1];
-  const series = [{ nome: 'faixa 10–90%', tipo: 'banda', y: R.clim.p10, y2: R.clim.p90, cor: css('--mudo') },
-    { nome: 'mediana', tipo: 'linha', y: R.clim.p50, cor: css('--mudo'), esp: 1.5, traco: '4 3' }];
-  const leg = [['faixa 10–90% (1990/91–2019/20)', css('--mudo'), 1], ['mediana', css('--mudo')]];
-  anos.filter(a => a !== atual).forEach((a, k) => { const c = COR.cat[1 + k % 4]; series.push({ nome: a, tipo: 'linha', y: R.anos[a], cor: c, esp: 1.5 }); leg.push([a, c]); });
+  const mudo = css('--mudo'), ca = corAtual();
+  const series = [{ nome: 'faixa 10–90%', tipo: 'banda', y: R.clim.p10, y2: R.clim.p90, cor: mudo },
+    { nome: 'mediana', tipo: 'linha', y: R.clim.p50, cor: mudo, esp: 1.5, traco: '4 3' }];
+  const leg = [['faixa 10–90%*', mudo, 'caixa'], ['mediana (1990/91–2019/20)', mudo, 'tracejada']];
+  anos.filter(a => a !== atual).forEach((a, k) => { const c = ANOS_COR[k % ANOS_COR.length]; series.push({ nome: a, tipo: 'linha', y: R.anos[a], cor: c, esp: 1.6 }); leg.push([a, c]); });
   const ya = R.anos[atual] ? R.anos[atual].slice() : x.map(() => null);
-  series.push({ nome: atual, tipo: 'linha', y: ya, cor: COR.cat[0], esp: 3, marcas: true }); leg.push([atual, COR.cat[0]]);
+  series.push({ nome: atual, tipo: 'linha', y: ya, cor: ca, esp: 3, marcas: true }); leg.push([atual + ': fim de cada mês', ca, 'linha-ponto']);
   if (R.parcial) {
     const yp = x.map(() => null); yp[R.parcial.indice] = R.parcial.valor;
-    series.push({ nome: atual + ' até ' + fmtData(R.parcial.ate) + (R.parcial.preliminar ? ' (prelim.)' : ''), tipo: 'vazio', y: yp, cor: COR.cat[0] });
+    series.push({ nome: atual + ' até ' + fmtData(R.parcial.ate) + (R.parcial.preliminar ? ' (prelim.)' : ''), tipo: 'vazio', y: yp, cor: ca });
+    leg.push(['mês em curso, até ' + fmtData(R.parcial.ate) + '**', ca, 'vazio']);
   }
   $('hidro-titulo').textContent = 'Chuva acumulada no ano hidrológico (mm) — ' + nomeReg(reg);
   legenda($('hidro-leg'), leg);
-  grafico($('hidro-graf'), { x: x, series: series, un: 'mm', casas: 0, rotDica: (m, i) => 'até o fim de ' + MESES_L[(H.mes_inicio - 1 + i) % 12], ticksX: x.map((_, i) => i), h: 260 });
+  grafico($('hidro-graf'), { x: x, series: series, un: 'mm', casas: 0, rotDica: (m, i) => 'até o fim de ' + MESES_L[(H.mes_inicio - 1 + i) % 12], ticksX: x.map((_, i) => i), h: 270 });
 }
 
 /* ---------- Previsão ---------- */
 let leadSel = 0;
 function previsaoIniciar() {
   const ms = D.prev.modelos;
-  if (!ms.length) { $('s-previsao').innerHTML = '<div class="bloco texto"><h2>Previsão indisponível</h2><p>O pipeline rodou sem as previsões do C3S. Configure o acesso ao Copernicus CDS e rode de novo.</p></div>'; return false; }
+  if (!ms.length) { $('s-previsao').innerHTML = '<div class="bloco"><h2>Previsão indisponível</h2><p>Esta atualização rodou sem as previsões do C3S. Elas voltam na próxima atualização em que o Copernicus responder.</p></div>'; return false; }
   opcoes($('prev-mod'), ms.map(m => [m.id, m.nome]));
-  opcoes($('prev-reg'), D.meta.regioes.map(r => [r.id, r.nome]));
+  opcoes($('prev-reg'), D.meta.regioes.map(r => [r.id, nomeReg(r.id)]));
   ['prev-mod', 'prev-var', 'prev-reg'].forEach(id => $(id).onchange = previsaoDesenhar);
   return true;
 }
@@ -409,31 +582,32 @@ function previsaoDesenhar() {
   const va = $('prev-var').value, reg = $('prev-reg').value, r = mod.regioes[reg][va], nome = nomeReg(reg);
   const eChuva = va === 'chuva', cor = eChuva ? [COR.umido, COR.seco] : [COR.quente, COR.frio];
   const series = [];
-  if (r.p10) series.push({ nome: 'faixa 10–90% dos membros', tipo: 'banda', y: r.p10, y2: r.p90, cor: css('--mudo') });
+  if (r.p10) series.push({ nome: 'faixa dos membros', tipo: 'banda', y: r.p10, y2: r.p90, cor: css('--mudo') });
   series.push({ nome: 'média do conjunto', tipo: 'barra', y: r.media, cor: cor[0], corNeg: cor[1] });
-  $('prev-titulo').textContent = (eChuva ? 'Anomalia de chuva prevista (mm/mês)' : 'Anomalia de temperatura prevista (°C)') + ' — ' + nome;
-  legenda($('prev-leg'), [[eChuva ? 'acima da média' : 'mais quente', cor[0], 1], [eChuva ? 'abaixo da média' : 'mais frio', cor[1], 1]].concat(r.p10 ? [['faixa 10–90% dos membros', css('--mudo'), 1]] : []));
-  grafico($('prev-graf'), { x: mod.alvos, series: series, un: eChuva ? 'mm' : '°C', casas: eChuva ? 0 : 2, sinal: true, rotX: fmtMesC, rotDica: fmtMes, ticksX: mod.alvos.map((_, i) => i), h: 230 });
-  let f = 'Previsão do <strong>' + mod.nome + '</strong> emitida em ' + fmtMes(mod.inic) + ' (' + mod.membros + ' membros), em relação a ' + D.prev.ref + '. ';
-  if (r.frac_neg) f += eChuva ? 'Para ' + fmtMes(mod.alvos[1]) + ', <strong>' + num(r.frac_neg[1]) + '%</strong> dos membros indicam chuva abaixo da média em ' + nome + '.'
-    : 'Para ' + fmtMes(mod.alvos[1]) + ', <strong>' + num(100 - r.frac_neg[1]) + '%</strong> dos membros indicam temperatura acima da média em ' + nome + '.';
+  $('prev-titulo').textContent = (eChuva ? 'Chuva prevista: diferença em relação à média (mm/mês)' : 'Temperatura prevista: diferença em relação à média (°C)') + ' — ' + nome;
+  legenda($('prev-leg'), [[eChuva ? 'mais chuva que a média' : 'mais quente', cor[0], 'caixa'], [eChuva ? 'menos chuva que a média' : 'mais frio', cor[1], 'caixa']]
+    .concat(r.p10 ? [['faixa com 80% dos membros*', css('--mudo'), 'caixa']] : []));
+  grafico($('prev-graf'), { x: mod.alvos, series: series, un: eChuva ? 'mm' : '°C', casas: eChuva ? 0 : 2, sinal: true, rotX: fmtMesC, rotDica: fmtMes, ticksX: mod.alvos.map((_, i) => i), h: 240 });
+  let f = 'Previsão do <strong>' + mod.nome + '</strong> emitida em ' + fmtMesL(mod.inic) + ', com ' + mod.membros + ' membros. ';
+  if (r.frac_neg) f += eChuva ? 'Para ' + fmtMesL(mod.alvos[1]) + ', <strong>' + num(r.frac_neg[1]) + '%</strong> dos membros indicam chuva abaixo da média em ' + nome + '.'
+    : 'Para ' + fmtMesL(mod.alvos[1]) + ', <strong>' + num(100 - r.frac_neg[1]) + '%</strong> dos membros indicam temperatura acima da média em ' + nome + '.';
   $('prev-frase').innerHTML = f;
   leadSel = Math.min(leadSel, mod.alvos.length - 1);
-  $('prev-leads').innerHTML = mod.alvos.map((a, i) => '<button data-i="' + i + '"' + (i === leadSel ? ' class="ativo"' : '') + '>' + fmtMes(a) + '</button>').join('');
+  $('prev-leads').innerHTML = mod.alvos.map((a, i) => '<button type="button" data-i="' + i + '"' + (i === leadSel ? ' class="ativo"' : '') + '>' + fmtMes(a) + '</button>').join('');
   $('prev-leads').querySelectorAll('button').forEach(b => b.onclick = () => { leadSel = +b.dataset.i; previsaoDesenhar(); });
   const esc = ESC['prev_' + va], g = mod.grade;
-  desenhaMapa($('prev-mapa'), { lon0: g.lon0, lat0: g.lat0, d: g.d, nx: g.nx, ny: g.ny, v: mod.mapas[va][leadSel] }, esc);
-  legendaMapa($('prev-mapa-leg'), esc, (eChuva ? 'Anomalia de chuva (mm/mês)' : 'Anomalia de temperatura (°C)') + ' — ' + fmtMes(mod.alvos[leadSel]));
-  $('prev-mapa-sub').textContent = mod.nome + ', média do conjunto';
+  mapaInterativo('prev-mapa', { lon0: g.lon0, lat0: g.lat0, d: g.d, nx: g.nx, ny: g.ny, v: mod.mapas[va][leadSel] }, esc);
+  legendaMapa($('prev-mapa-leg'), esc, (eChuva ? 'Chuva: diferença em relação à média (mm/mês)' : 'Temperatura: diferença em relação à média (°C)') + ' — ' + fmtMesL(mod.alvos[leadSel]));
+  $('prev-mapa-sub').textContent = mod.nome + ', média dos membros';
 }
 
 /* ---------- Previsto x observado ---------- */
 function verifIniciar() {
   const ms = D.verif.modelos;
-  if (!ms.length) { $('s-verificacao').innerHTML = '<div class="bloco texto"><h2>Comparação indisponível</h2><p>Sem previsões arquivadas do C3S nesta atualização.</p></div>'; return false; }
+  if (!ms.length) { $('s-verificacao').innerHTML = '<div class="bloco"><h2>Comparação indisponível</h2><p>Ainda não há previsões arquivadas do C3S para comparar.</p></div>'; return false; }
   opcoes($('ver-mod'), ms.map(m => [m.id, m.nome]));
-  opcoes($('ver-reg'), D.meta.regioes.map(r => [r.id, r.nome]));
-  opcoes($('ver-lead'), [1, 2, 3, 4, 5, 6].map(l => [l, l === 1 ? '1 (mês da emissão)' : l + ' meses']), 2);
+  opcoes($('ver-reg'), D.meta.regioes.map(r => [r.id, nomeReg(r.id)]));
+  opcoes($('ver-lead'), [1, 2, 3, 4, 5, 6].map(l => [l, l === 1 ? '1 mês (emitida no próprio mês)' : l + ' meses (emitida ' + (l - 1) + ' ' + (l === 2 ? 'mês' : 'meses') + ' antes)']), 2);
   ['ver-mod', 'ver-var', 'ver-reg', 'ver-lead'].forEach(id => $(id).onchange = verifDesenhar);
   return true;
 }
@@ -441,46 +615,75 @@ function verifDesenhar() {
   const mod = D.verif.modelos.find(m => m.id === $('ver-mod').value); if (!mod) return;
   const va = $('ver-var').value, reg = $('ver-reg').value, L = +$('ver-lead').value, todos = mod.regioes[reg][va], eChuva = va === 'chuva';
   const pts = todos.filter(p => p.lead === L).sort((a, b) => a.alvo < b.alvo ? -1 : 1);
-  const corObs = css('--tinta'), corPrev = COR.cat[0], x = pts.map(p => p.alvo), marcos = marcosNino(x);
-  $('ver-titulo').textContent = 'Anomalia ' + (eChuva ? 'de chuva (mm/mês)' : 'de temperatura (°C)') + ' — ' + nomeReg(reg);
-  legenda($('ver-leg'), [['observado', corObs], ['previsto com antecedência ' + L, corPrev]].concat(marcos.length ? [['início do El Niño', css('--nino'), 'tr']] : []));
-  grafico($('ver-graf'), { x: x, series: [
-    { nome: 'observado', tipo: 'linha', marcas: true, y: pts.map(p => p.obs), cor: corObs },
-    { nome: 'previsto', tipo: 'linha', marcas: true, y: pts.map(p => p.prev), cor: corPrev }],
-    un: eChuva ? 'mm' : '°C', casas: eChuva ? 0 : 2, sinal: true, rotX: fmtMesC, rotDica: fmtMes, h: 250, marcos: marcos });
-  const linhas = [1, 2, 3, 4, 5, 6].map(l => { const q = todos.filter(p => p.lead === l && p.obs != null); if (!q.length) return [l, 0, '–', '–', '–'];
+  const corObs = css('--tinta'), corPrev = corAtual(), x = pts.map(p => p.alvo), eventos = eventosNino(x);
+  const temFaixa = pts.some(p => p.p10 != null);
+  $('ver-titulo').textContent = (eChuva ? 'Chuva' : 'Temperatura') + ': diferença em relação à média 1993–2016 (' + (eChuva ? 'mm/mês' : '°C') + ') — ' + nomeReg(reg);
+  legenda($('ver-leg'), [['observado', corObs, 'linha-ponto'], ['previsto (média dos membros), antecedência de ' + L + (L === 1 ? ' mês' : ' meses'), corPrev, 'linha-ponto']]
+    .concat(temFaixa ? [['faixa com 80% dos membros', corPrev, 'caixa']] : []).concat(eventos.length ? [itemEvento()] : []));
+  const series = [];
+  if (temFaixa) series.push({ nome: 'faixa dos membros', tipo: 'banda', y: pts.map(p => p.p10 ?? null), y2: pts.map(p => p.p90 ?? null), cor: corPrev, opac: 0.18 });
+  series.push({ nome: 'observado', tipo: 'linha', marcas: true, y: pts.map(p => p.obs), cor: corObs },
+    { nome: 'previsto', tipo: 'linha', marcas: true, y: pts.map(p => p.prev), cor: corPrev });
+  grafico($('ver-graf'), { x: x, series: series, un: eChuva ? 'mm' : '°C', casas: eChuva ? 0 : 2, sinal: true, eixoMeses: x.length > 8, rotX: x.length > 8 ? null : fmtMesC,
+    ticksX: x.length > 8 ? null : x.map((_, i) => i), rotDica: fmtMes, h: 260, eventos: eventos });
+  const cs = eChuva ? 0 : 2;
+  const linhas = [1, 2, 3, 4, 5, 6].map(l => { const q = todos.filter(p => p.lead === l && p.obs != null); if (!q.length) return [l + (l === 1 ? ' mês' : ' meses'), 0, '–', '–', '–', '–'];
     const e = q.map(p => p.prev - p.obs), vies = e.reduce((a, b) => a + b, 0) / e.length, mae = e.reduce((a, b) => a + Math.abs(b), 0) / e.length;
     const sinal = q.filter(p => Math.sign(p.prev) === Math.sign(p.obs)).length;
-    return [l, q.length, num(vies, eChuva ? 0 : 2, true), num(mae, eChuva ? 0 : 2), sinal + ' de ' + q.length]; });
-  tabela($('ver-tab'), ['Antecedência', 'Meses comparados', 'Erro médio (previsto − observado)', 'Erro absoluto médio', 'Acertou o sinal'], linhas);
+    const qf = q.filter(p => p.p10 != null), dentro = qf.filter(p => p.obs >= p.p10 && p.obs <= p.p90).length;
+    return [l + (l === 1 ? ' mês' : ' meses'), q.length, num(vies, cs, true), num(mae, cs), sinal + ' de ' + q.length, qf.length ? dentro + ' de ' + qf.length : '–']; });
+  tabela($('ver-tab'), ['Antecedência', 'Meses comparados', 'Erro médio', 'Erro típico', 'Acertou o lado', 'Dentro da faixa'], linhas);
 }
 
 /* ---------- Rio ---------- */
+let rioAnos = null;
 function rioIniciar() {
   const es = D.rio.estacoes || [];
-  if (!es.length) { $('s-rio').innerHTML = '<div class="bloco texto"><h2>Nível do rio indisponível</h2><p>O serviço da ANA não respondeu nesta atualização.</p></div>'; return false; }
+  if (!es.length) { $('s-rio').innerHTML = '<div class="bloco"><h2>Nível do rio indisponível</h2><p>Sem dados da ANA nesta atualização.</p></div>'; return false; }
   opcoes($('rio-est'), es.map(e => [e.codigo, e.nome])); $('rio-est').onchange = rioDesenhar; return true;
 }
+const NOTAS_RIO = {
+  'Cáceres': 'Em Cáceres o rio Paraguai ainda está perto das cabeceiras: sobe e desce em poucos dias a cada chuva forte, por isso a linha é "nervosa". Essas oscilações são reais.',
+  'Ladário': 'Em Ladário a água já atravessou boa parte do Pantanal, que funciona como uma esponja: a cheia chega meses depois da chuva e varia devagar.',
+  'Porto Murtinho': 'Porto Murtinho fica na saída do Pantanal: o nível reflete a água que escoou de toda a planície, com atraso de meses em relação à chuva.'
+};
 function rioDesenhar() {
   const e = D.rio.estacoes.find(q => q.codigo === $('rio-est').value); if (!e) return;
   const anos = Object.keys(e.anos).sort(), atual = anos[anos.length - 1], med = e.clim.p50[diaAno(e.ultimo.data)];
-  $('rio-tiles').innerHTML = '<div class="tile"><div class="rot">Último nível (' + e.ultimo.data.split('-').reverse().join('/') + ')</div><div class="val">' + num(e.ultimo.cm) + ' cm</div><div class="det">' + (med != null ? 'mediana para a data: ' + num(med) + ' cm' : '') + '</div></div>' +
-    '<div class="tile"><div class="rot">Diferença para a mediana</div><div class="val">' + (med != null ? num(e.ultimo.cm - med, 0, true) + ' cm' : '–') + '</div><div class="det">referência 1991–2020 (' + e.ref_anos + ' anos com dados)</div></div>' +
-    '<div class="tile"><div class="rot">Mínimo da série</div><div class="val">' + num(e.min_hist.cm) + ' cm</div><div class="det">' + e.min_hist.data.split('-').reverse().join('/') + '</div></div>';
-  const x = Array.from({ length: 365 }, (_, i) => i), series = [{ nome: 'faixa 10–90%', tipo: 'banda', y: e.clim.p10, y2: e.clim.p90, cor: css('--mudo') },
-    { nome: 'mediana', tipo: 'linha', y: e.clim.p50, cor: css('--mudo'), esp: 1.5, traco: '4 3' }], leg = [['faixa 10–90% (1991–2020)', css('--mudo'), 1], ['mediana', css('--mudo')]];
-  anos.filter(a => a !== atual).forEach((a, k) => { series.push({ nome: a, tipo: 'linha', y: e.anos[a], cor: COR.cat[1 + k % 4], esp: 1.5 }); leg.push([a, COR.cat[1 + k % 4]]); });
-  series.push({ nome: atual, tipo: 'linha', y: e.anos[atual], cor: COR.cat[0], esp: 3 }); leg.push([atual, COR.cat[0]]);
+  if (!rioAnos) rioAnos = (e.padrao || anos.slice(-3)).filter(a => a !== atual);
+  const sel = rioAnos.filter(a => e.anos[a]);
+  $('rio-tiles').innerHTML = '<div class="tile"><div class="rot">Último nível · ' + fmtDataC(e.ultimo.data) + '</div><div class="val">' + num(e.ultimo.cm) + ' cm</div><div class="det">' + (med != null ? 'A mediana para este dia do ano é ' + num(med) + ' cm.' : '') + '</div></div>' +
+    '<div class="tile"><div class="rot">Diferença para a mediana</div><div class="val">' + (med != null ? num(e.ultimo.cm - med, 0, true) + ' cm' : '–') + '</div><div class="det">Referência 1991–2020 (' + e.ref_anos + ' anos com dados).</div></div>' +
+    '<div class="tile"><div class="rot">Mínimo da série</div><div class="val">' + num(e.min_hist.cm) + ' cm</div><div class="det">Em ' + fmtDataC(e.min_hist.data) + '.</div></div>';
+  const mudo = css('--mudo'), ca = corAtual();
+  const x = Array.from({ length: 365 }, (_, i) => i), series = [{ nome: 'faixa 10–90%', tipo: 'banda', y: e.clim.p10, y2: e.clim.p90, cor: mudo },
+    { nome: 'mediana', tipo: 'linha', y: e.clim.p50, cor: mudo, esp: 1.5, traco: '4 3' }], leg = [['faixa 10–90% (1991–2020)*', mudo, 'caixa'], ['mediana', mudo, 'tracejada']];
+  sel.forEach((a, k) => { series.push({ nome: a, tipo: 'linha', y: e.anos[a], cor: ANOS_COR[k % ANOS_COR.length], esp: 1.6 }); });
+  series.push({ nome: atual, tipo: 'linha', y: e.anos[atual], cor: ca, esp: 3 }); leg.push([atual + ' (ano atual)', ca, 'grossa']);
   $('rio-titulo').textContent = 'Nível do rio Paraguai em ' + e.nome + ' ao longo do ano (cm)';
   legenda($('rio-leg'), leg);
+  // escolha dos anos de comparação
+  const livres = anos.filter(a => a !== atual && !sel.includes(a)).reverse();
+  $('rio-anos').innerHTML = '<span>Comparar com:</span>' + sel.map((a, k) => '<span class="ch"><i style="background:' + ANOS_COR[k % ANOS_COR.length] + '"></i>' + a +
+    '<button type="button" data-a="' + a + '" aria-label="Remover ' + a + '">×</button></span>').join('') +
+    (sel.length < 6 ? '<select id="rio-add" aria-label="Adicionar ano"><option value="">+ adicionar ano</option>' + livres.map(a => '<option>' + a + '</option>').join('') + '</select>' : '');
+  $('rio-anos').querySelectorAll('button').forEach(b => b.onclick = () => { rioAnos = rioAnos.filter(a => a !== b.dataset.a); rioDesenhar(); });
+  if ($('rio-add')) $('rio-add').onchange = ev => { if (ev.target.value) { rioAnos = rioAnos.concat([ev.target.value]); rioDesenhar(); } };
   const ini = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
   const data = i => { let m = 11; while (ini[m] > i) m--; return (i - ini[m] + 1) + ' de ' + MESES[m]; };
-  grafico($('rio-graf'), { x: x, series: series, un: 'cm', casas: 0, zero: false, h: 300, ticksX: ini.map(v => v + 14), rotX: (_, i) => MESES[ini.findIndex(v => v + 14 === i)], rotDica: (_, i) => data(i) });
+  grafico($('rio-graf'), { x: x, series: series, un: 'cm', casas: 0, zero: false, h: 310, ticksX: ini.map(v => v + 14), ticksMenores: ini.concat([365]),
+    rotX: (_, i) => MESES[ini.findIndex(v => v + 14 === i)], rotDica: (_, i) => data(i) });
+  $('rio-nota').textContent = (NOTAS_RIO[e.nome.replace(/ \(.*\)$/, '')] || '') + ' Fonte: Agência Nacional de Águas e Saneamento Básico (ANA).';
+}
+
+/* ---------- Sobre ---------- */
+function sobre() {
+  $('n-refs').textContent = '(' + $('refs').children.length + ')';
 }
 
 /* ---------- navegação ---------- */
 const ABAS = ['visao', 'mapas', 'series', 'previsao', 'verificacao', 'rio', 'sobre'];
-const desenha = { visao: visao, mapas: mapasDesenhar, series: seriesDesenhar, previsao: previsaoDesenhar, verificacao: verifDesenhar, rio: rioDesenhar, sobre: () => {} };
+const desenha = { visao: visao, mapas: mapasDesenhar, series: seriesDesenhar, previsao: previsaoDesenhar, verificacao: verifDesenhar, rio: rioDesenhar, sobre: sobre };
 const pronto = {};
 function rota() {
   let a = location.hash.replace('#', ''); if (!ABAS.includes(a)) a = 'visao';
@@ -499,16 +702,16 @@ async function iniciar() {
   } catch (e) {
     ABAS.forEach(x => $('s-' + x).hidden = true); $('s-vazio').hidden = false; $('abas').hidden = true; return;
   }
-  D.meta.regioes.forEach(r => { const c = { bap: 'Bacia', pln: 'Planalto N', ptn: 'Pantanal N', pls: 'Planalto S', pts: 'Pantanal S' }[r.id]; if (!r.curto) r.curto = c || r.nome; });
   $('aviso-demo').hidden = !D.meta.demo;
-  $('atual').textContent = 'Atualizado em ' + D.meta.atualizado.slice(0, 10).split('-').reverse().join('/');
-  $('citacao').textContent = 'Barros da Rosa, L. (' + D.meta.atualizado.slice(0, 4) + '). Painel Hidroclimático da Bacia do Alto Paraguai. University of British Columbia. ' + location.origin + location.pathname;
+  $('atual').textContent = 'Atualizado em ' + fmtDataC(D.meta.atualizado.slice(0, 10));
+  $('citacao').textContent = 'Barros da Rosa, L. (' + D.meta.atualizado.slice(0, 4) + '). Painel Hidroclimático da Bacia do Alto Paraguai. The University of British Columbia. Disponível em: ' + location.origin + location.pathname + '. Acesso em: ' + fmtDataC(new Date().toISOString().slice(0, 10)) + '.';
+  $('copiar-cit').onclick = () => { try { navigator.clipboard.writeText($('citacao').textContent); $('copiar-cit').querySelector('span').textContent = 'Copiado'; } catch (e) {} };
   const F = D.meta.fontes || {}; if (F.regioes) $('txt-regioes').textContent = F.regioes; if (F.chuva) $('txt-chuva').textContent = F.chuva;
   mapasIniciar(); seriesIniciar();
   pronto.previsao = previsaoIniciar(); pronto.verificacao = verifIniciar(); pronto.rio = rioIniciar();
   rota();
 }
-function temaBotao() { const esc = document.documentElement.dataset.tema !== 'claro'; $('tema').textContent = esc ? '☀ Fundo claro' : '☾ Fundo escuro'; }
+function temaBotao() { const e = escuro(); $('tema').querySelector('span').textContent = e ? 'Fundo claro' : 'Fundo escuro'; $('tema').querySelector('use').setAttribute('href', e ? '#i-sol' : '#i-lua'); }
 $('tema').onclick = () => {
   const novo = document.documentElement.dataset.tema === 'claro' ? 'escuro' : 'claro';
   document.documentElement.dataset.tema = novo;

@@ -99,7 +99,7 @@ def rodar():
     niv = 80 + np.array([amp[a] for a in an]) * 330 * np.clip(np.sin(np.pi * ((d2 - 20) % 365) / 365) ** 1.5, 0, 1) - 60 * (np.array([amp[a] for a in an]) < 0.5)
     rio = rio_json({("66825000", "Ladário (simulado)"): {str(d): float(v) for d, v in zip(dr, niv)}})
     oni = [{"t": ym(1990 + i // 12, i % 12 + 1), "v": round(float(1.3 * np.sin(i / 7.0) + 0.3 * np.sin(i / 2.3)), 1)} for i in range(nm)]
-    for k, v in zip(range(-12, 0), [-0.3, -0.2, 0.0, 0.2, 0.4, 0.6, 0.9, 1.3, 1.7, 2.0, 2.1, 2.2]):
+    for k, v in zip(range(-12, 0), [-0.6, -0.5, -0.3, -0.2, 0.0, 0.2, 0.3, 0.4, 0.6, 1.0, 1.5, 2.0]):
         oni[k]["v"] = v
 
     # chuva diária dos últimos 120 dias (os últimos 25 "preliminares")
@@ -108,5 +108,5 @@ def rodar():
     taxa = np.array([230, 200, 160, 90, 45, 15, 8, 15, 50, 110, 170, 220.0])[mesd] / 30
     chuva = rng.gamma(0.5, 2 * taxa[:, None, None] * 0.6, size=(len(dd), G05["ny"], G05["nx"])).astype("float32")
     chuva_diaria = (chuva, dd, str(dd[-25]))
-    gerar_saida(P, anos_p, meses_p, tmax, tmin, datas, m05, m10, geo, prev, rio, (oni, 'RONI'), chuva_diaria=chuva_diaria, demo=True,
+    gerar_saida(P, anos_p, meses_p, tmax, tmin, datas, m05, m10, geo, prev, rio, (oni, 'RONI', {'semana': str(hoje - dt.timedelta(days=10)), 'nino34': 3.3, 'nino12': 4.7}), chuva_diaria=chuva_diaria, demo=True,
                   fontes={"chuva": "dados simulados", "regioes": "Limites esquemáticos, apenas para demonstração."})

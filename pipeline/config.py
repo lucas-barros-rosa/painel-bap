@@ -25,11 +25,11 @@ URL_BIOMAS = "https://geoftp.ibge.gov.br/informacoes_ambientais/estudos_ambienta
 AREA_BAP_ESPERADA_KM2 = (320_000, 400_000)   # só para conferir (BAP no Brasil ~ 362 mil km²)
 
 REGIOES = [
-    {"id": "bap", "nome": "Bacia do Alto Paraguai", "curto": "Bacia", "cod": None},
-    {"id": "pln", "nome": "Planalto Norte (MT)", "curto": "Planalto N", "cod": 1},
-    {"id": "ptn", "nome": "Pantanal Norte (MT)", "curto": "Pantanal N", "cod": 2},
-    {"id": "pls", "nome": "Planalto Sul (MS)", "curto": "Planalto S", "cod": 3},
-    {"id": "pts", "nome": "Pantanal Sul (MS)", "curto": "Pantanal S", "cod": 4},
+    {"id": "bap", "nome": "Bacia do Alto Paraguai (toda)", "curto": "Bacia toda", "cod": None},
+    {"id": "pln", "nome": "Planalto MT", "curto": "Planalto MT", "cod": 1},
+    {"id": "ptn", "nome": "Pantanal MT", "curto": "Pantanal MT", "cod": 2},
+    {"id": "pls", "nome": "Planalto MS", "curto": "Planalto MS", "cod": 3},
+    {"id": "pts", "nome": "Pantanal MS", "curto": "Pantanal MS", "cod": 4},
 ]
 
 # ----------------------------------------------------------------------------- chuva: CHIRPS v3 (Climate Hazards Center)
@@ -62,11 +62,13 @@ CDS_ESPERAS_FILA = 2                  # …no máximo estas vezes (depois fica p
 # ----------------------------------------------------------------------------- El Niño (NOAA/CPC)
 URL_RONI = "https://www.cpc.ncep.noaa.gov/data/indices/RONI.ascii.txt"   # índice oficial desde fev/2026
 URL_ONI = "https://www.cpc.ncep.noaa.gov/data/indices/oni.ascii.txt"     # reserva, se o RONI falhar
+URL_NINO_SEMANAL = "https://www.cpc.ncep.noaa.gov/data/indices/wksst9120.for"  # Niño semanal (OISST, 1991-2020)
 EL_NINO_AVISO = "2026-06-11"           # data em que a NOAA emitiu o "El Niño Advisory" (só para exibição)
 
 # ----------------------------------------------------------------------------- rio Paraguai (ANA)
 ESTACOES_RIO = [("66825000", "Ladário"), ("66070004", "Cáceres"), ("67100000", "Porto Murtinho")]
-ANOS_DESTAQUE_RIO = [2020, 2021, 2024]
+RIO_ANO_INICIAL = 1980                 # anos que o site deixa escolher para comparar no gráfico do rio
+RIO_ANOS_PADRAO = [2023, 2024]         # além do ano atual e do anterior: El Niño 2023-24 e a seca recorde de 2024
 
 # ----------------------------------------------------------------------------- ano hidrológico
 MES_INICIO_ANO_HIDRO = 10              # outubro: ~80% da chuva da BAP cai de out a mar (Thielen et al., 2020)

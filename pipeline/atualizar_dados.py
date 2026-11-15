@@ -91,7 +91,7 @@ def principal():
             if not rio["estacoes"]:
                 log("   sem dados de nível; dá para usar CSVs em pipeline/entrada/nivel_<codigo>.csv (data,nivel_cm)")
         log("Índice do El Niño (NOAA/CPC)…")
-        enso = fontes.baixar_enso()
+        enso = fontes.baixar_enso() + (fontes.baixar_nino_semanal(),)
     except TempoEsgotado:
         log("Tempo limite desta execução atingido. O que já foi baixado está no cache; "
             "a próxima execução continua de onde parou. O site não foi atualizado desta vez.")

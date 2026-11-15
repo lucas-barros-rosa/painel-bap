@@ -266,7 +266,7 @@ def ano_hidrologico(p, anos, meses, mes_ini=10):
 
 
 # ----------------------------------------------------------------------------- El Niño
-def eventos_enso(serie, limiar=0.5, minimo=5):
+def eventos_enso(serie, limiar=0.5, minimo=5, minimo_provisorio=3):
     """Eventos pelo critério da NOAA/CPC: >= 5 trimestres móveis consecutivos com índice >= +0,5 °C
     (El Niño) ou <= -0,5 °C (La Niña). serie: [{"t": "AAAA-MM" (mês central), "v": valor}].
     -> [{"tipo", "inicio", "fim", "pico", "em_curso"}]"""
@@ -278,10 +278,13 @@ def eventos_enso(serie, limiar=0.5, minimo=5):
                 j = i
                 while j + 1 < len(serie) and cond(serie[j + 1]["v"]):
                     j += 1
-                if j - i + 1 >= minimo:
+                em_curso = j == len(serie) - 1
+                if j - i + 1 >= minimo or (em_curso and j - i + 1 >= minimo_provisorio):
+                    # em curso com menos de 5 trimestres: evento provisório (confirma-se ao completar 5)
                     vs = [s["v"] for s in serie[i:j + 1]]
                     ev.append({"tipo": tipo, "inicio": serie[i]["t"], "fim": serie[j]["t"],
-                               "pico": max(vs) if tipo == "El Niño" else min(vs), "em_curso": j == len(serie) - 1})
+                               "pico": max(vs) if tipo == "El Niño" else min(vs), "em_curso": em_curso,
+                               "provisorio": j - i + 1 < minimo, "trimestres": j - i + 1})
                 i = j + 1
             else:
                 i += 1

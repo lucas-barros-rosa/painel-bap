@@ -32,10 +32,11 @@ def rio_json(series):
             sel = anos == a
             c[doy[sel] - 1] = v[sel]
             return arred(c, 0)
-        destaques = {str(a): ano_curva(a) for a in C.ANOS_DESTAQUE_RIO + [hoje.year - 1, hoje.year] if (anos == a).any()}
+        todos = {str(a): ano_curva(a) for a in range(max(C.RIO_ANO_INICIAL, int(anos.min())), hoje.year + 1) if (anos == a).any()}
+        padrao = [str(a) for a in C.RIO_ANOS_PADRAO + [hoje.year - 1, hoje.year] if str(a) in todos]
         est.append({"codigo": codigo, "nome": nome, "ultimo": {"data": str(datas[-1]), "cm": round(float(v[-1]))},
                     "ref_anos": int(len(np.unique(anos[ref]))),
-                    "clim": {k: arred(c, 0) for k, c in clim.items()}, "anos": destaques,
+                    "clim": {k: arred(c, 0) for k, c in clim.items()}, "anos": todos, "padrao": sorted(set(padrao)),
                     "min_hist": {"cm": round(float(v.min())), "data": str(datas[v.argmin()])}})
     return {"estacoes": est}
 
@@ -142,11 +143,13 @@ def gerar_saida(P, anos_p, meses_p, tmax, tmin, datas, m05, m10, geo, previsoes=
         series[r["id"]] = s
         reg_P[r["id"]], reg_T[r["id"]] = p, tm
     # ---------------- El Niño: série, eventos e início do evento atual
-    serie_enso, nome_enso = enso if enso else ([], None)
+    serie_enso, nome_enso = (enso[0], enso[1]) if enso else ([], None)
+    semanal = enso[2] if enso and len(enso) > 2 else None
     eventos = pr.eventos_enso(serie_enso)
     ninos = [e for e in eventos if e["tipo"] == "El Niño"]
     atual = next((e for e in reversed(ninos) if e["em_curso"]), ninos[-1] if ninos else None)
-    info_enso = {"indice": nome_enso, "serie": serie_enso, "eventos": eventos, "atual": atual, "aviso": C.EL_NINO_AVISO}
+    info_enso = {"indice": nome_enso, "serie": serie_enso, "eventos": eventos, "atual": atual, "aviso": C.EL_NINO_AVISO,
+                 "semanal": semanal}
 
     # ---------------- ano hidrológico (chuva acumulada desde outubro)
     hidro = ano_hidrologico_json(reg_P, anos, meses, chuva_diaria, m05, w05, masc)
@@ -182,9 +185,13 @@ def gerar_saida(P, anos_p, meses_p, tmax, tmin, datas, m05, m10, geo, previsoes=
                     it = aa * 12 + mm - 1 - i0
                     for nome_v, arr, obs in (("chuva", pr_, obs_anom[r["id"]]["chuva"][0]), ("temp", tr, obs_anom[r["id"]]["temp"][0])):
                         o = obs[it] if 0 <= it < T and np.isfinite(obs[it]) else None
-                        ver[r["id"]][nome_v].append({"inic": ym(a, m), "alvo": ym(aa, mm), "lead": L,
-                                                     "prev": round(float(arr[:, j].mean()), 2),
-                                                     "obs": None if o is None else round(float(o), 2)})
+                        ponto = {"inic": ym(a, m), "alvo": ym(aa, mm), "lead": L,
+                                 "prev": round(float(arr[:, j].mean()), 2),
+                                 "obs": None if o is None else round(float(o), 2)}
+                        if arr.shape[0] >= 10:                     # faixa do conjunto (membros), não só a média
+                            q10, q90 = np.percentile(arr[:, j], [10, 90])
+                            ponto.update(p10=round(float(q10), 2), p90=round(float(q90), 2))
+                        ver[r["id"]][nome_v].append(ponto)
             if (a, m) == ult_rodada:
                 alvos = [ym(*soma_mes(a, m, L - 1)) for L in d["leads"]]
                 regs = {}

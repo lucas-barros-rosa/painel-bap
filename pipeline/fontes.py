@@ -67,7 +67,9 @@ def regioes(construir=False):
     arq_geo, arq_m = C.ENTRADA / "regioes.geojson", C.ENTRADA / "mascaras.npz"
     if arq_geo.exists() and arq_m.exists() and not construir:
         z = np.load(arq_m)
-        return json.load(open(arq_geo, encoding="utf-8")), z["m05"], z["m10"], str(z["desc"])
+        desc = str(z["desc"]).replace("Norte e sul separados pela divisa MT/MS",
+                                      "Partes de Mato Grosso (MT) e Mato Grosso do Sul (MS) separadas pela divisa estadual")
+        return json.load(open(arq_geo, encoding="utf-8")), z["m05"], z["m10"], desc
     if not construir:
         sys.exit("Faltam as regiões prontas (pipeline/entrada/regioes.geojson e mascaras.npz).\n"
                  "No seu computador, na pasta pipeline, rode:  python atualizar_dados.py --regioes\n"
@@ -121,7 +123,7 @@ def regioes(construir=False):
         return m
     m05, m10 = mascara(G05), mascara(G10)
     desc = ("Limite da BAP fornecido pelo autor, recortado ao território brasileiro. " + desc_p +
-            ". Norte e sul separados pela divisa MT/MS (malha do IBGE).")
+            ". Partes de Mato Grosso (MT) e Mato Grosso do Sul (MS) separadas pela divisa estadual (malha do IBGE).")
     geo = {"type": "FeatureCollection", "features": feats}
     grava(arq_geo, geo)
     np.savez_compressed(arq_m, m05=m05, m10=m10, desc=desc)
@@ -601,6 +603,28 @@ def c3s_todas():
 # =============================================================================
 # El Niño: RONI (índice oficial da NOAA desde fev/2026); ONI como reserva
 # =============================================================================
+def baixar_nino_semanal():
+    """Última semana do índice Niño (NOAA/CPC, OISST, anomalia tradicional em relação a 1991-2020).
+    -> {"semana": "AAAA-MM-DD" (centro da semana), "nino34": °C, "nino12": °C} ou None"""
+    import re, requests
+    meses = {m: i + 1 for i, m in enumerate("JAN FEB MAR APR MAY JUN JUL AUG SEP OCT NOV DEC".split())}
+    try:
+        r = tentar(lambda: requests.get(C.URL_NINO_SEMANAL, timeout=60), vezes=3, espera=15)
+        r.raise_for_status()
+        ult = None
+        for linha in r.text.splitlines():
+            m = re.match(r"\s*(\d{2})([A-Z]{3})(\d{4})(.*)", linha)
+            if not m or m.group(2) not in meses:
+                continue
+            v = [float(x) for x in re.findall(r"-?\d+\.\d+", m.group(4))]   # Niño1+2, 3, 3.4, 4: TSM e anomalia
+            if len(v) >= 8:
+                ult = {"semana": f"{m.group(3)}-{meses[m.group(2)]:02d}-{m.group(1)}", "nino12": v[1], "nino34": v[5]}
+        return ult
+    except Exception as e:                                          # noqa
+        log(f"   Niño semanal: {str(e)[:120]}")
+        return None
+
+
 def baixar_enso():
     """-> (série [{"t": mês central "AAAA-MM", "v": °C}], nome do índice)"""
     import requests

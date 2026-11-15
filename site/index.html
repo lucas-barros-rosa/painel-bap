@@ -5,27 +5,51 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Painel Hidroclimático da Bacia do Alto Paraguai</title>
 <meta name="description" content="Chuva, temperatura, seca, ondas de calor, nível do rio Paraguai, El Niño e previsão sazonal para o Pantanal e o planalto da Bacia do Alto Paraguai.">
-<meta name="author" content="Lucas Barros da Rosa — University of British Columbia">
+<meta name="author" content="Lucas Barros da Rosa — The University of British Columbia">
 <script>try{var t=localStorage.getItem('tema');if(t)document.documentElement.dataset.tema=t;}catch(e){}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <link rel="stylesheet" href="style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23191917'/%3E%3Ccircle cx='20' cy='11' r='4.5' fill='none' stroke='%23e0a43c' stroke-width='2.2'/%3E%3Cpath d='M5 21c3-2.4 5.5-2.4 8.5 0s5.5 2.4 8.5 0 4.5-2 5-1.6' fill='none' stroke='%23e0a43c' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-visao" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></symbol>
+  <symbol id="i-mapas" viewBox="0 0 24 24"><path d="M9 4 3.5 6v14L9 18l6 2 5.5-2V4L15 6 9 4Z"/><path d="M9 4v14M15 6v14"/></symbol>
+  <symbol id="i-series" viewBox="0 0 24 24"><path d="M3.5 20.5h17"/><path d="m4.5 15 4.5-5 4 3.5 6.5-8"/></symbol>
+  <symbol id="i-previsao" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/><path d="m10 14.5 2.5 2 3.5-4"/></symbol>
+  <symbol id="i-verificacao" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r=".8"/></symbol>
+  <symbol id="i-rio" viewBox="0 0 24 24"><path d="M2.5 8c2.4-2 4.7-2 7 0s4.7 2 7 0 4.7-2 5-1.6"/><path d="M2.5 13c2.4-2 4.7-2 7 0s4.7 2 7 0 4.7-2 5-1.6"/><path d="M2.5 18c2.4-2 4.7-2 7 0s4.7 2 7 0 4.7-2 5-1.6"/></symbol>
+  <symbol id="i-sobre" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.6v.2"/></symbol>
+  <symbol id="i-sol" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></symbol>
+  <symbol id="i-lua" viewBox="0 0 24 24"><path d="M19.5 14.5A8 8 0 0 1 9.5 4.5a8 8 0 1 0 10 10Z"/></symbol>
+  <symbol id="i-maleta" viewBox="0 0 24 24"><rect x="3" y="7.5" width="18" height="12.5" rx="2"/><path d="M8.5 7.5V5.5a1.5 1.5 0 0 1 1.5-1.5h4a1.5 1.5 0 0 1 1.5 1.5v2M3 13h18"/></symbol>
+  <symbol id="i-artigo" viewBox="0 0 24 24"><path d="M6 3h8.5L19 7.5V21H6Z"/><path d="M14 3v5h5M9 12h7M9 15.5h7M9 19h4"/></symbol>
+  <symbol id="i-camera" viewBox="0 0 24 24"><rect x="3" y="6.5" width="18" height="13.5" rx="3"/><circle cx="12" cy="13.2" r="3.6"/><path d="M8.5 6.5 10 4h4l1.5 2.5"/></symbol>
+  <symbol id="i-copiar" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="12" height="12" rx="2"/><path d="M15.5 8.5V5.5a2 2 0 0 0-2-2h-8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h3"/></symbol>
+</svg>
+
 <header class="topo">
   <div class="topo-in">
-    <div class="marca">
-      <h1>Painel Hidroclimático da Bacia do Alto Paraguai</h1>
-      <p class="credito">Pantanal e planalto · por <strong>Lucas Barros da Rosa</strong>, University of British Columbia</p>
+    <a class="marca" href="#visao" aria-label="Início">
+      <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7"/><circle cx="20" cy="11" r="4.5"/><path d="M5 21c3-2.4 5.5-2.4 8.5 0s5.5 2.4 8.5 0 4.5-2 5-1.6"/></svg>
+      <span class="marca-txt"><span class="m1">Painel Hidroclimático</span><span class="m2">Bacia do Alto Paraguai</span></span>
+    </a>
+    <div class="lado">
+      <span class="atual" id="atual"></span>
+      <button class="tema" id="tema" type="button"><svg><use href="#i-sol"/></svg><span></span></button>
     </div>
-    <div class="lado"><p class="atual" id="atual"></p><button class="tema" id="tema" type="button"></button></div>
   </div>
   <nav class="abas" id="abas" aria-label="Seções do painel">
-    <a href="#visao" style="--c:#2a78d6">Visão geral</a>
-    <a href="#mapas" style="--c:#13996a">Mapas</a>
-    <a href="#series" style="--c:#d65a22">Séries</a>
-    <a href="#previsao" style="--c:#7656c2">Previsão</a>
-    <a href="#verificacao" style="--c:#b07a00">Previsto × observado</a>
-    <a href="#rio" style="--c:#13809a">Rio Paraguai</a>
-    <a href="#sobre" style="--c:#6b6a65">Sobre</a>
+    <a href="#visao"><svg><use href="#i-visao"/></svg>Visão geral</a>
+    <a href="#mapas"><svg><use href="#i-mapas"/></svg>Mapas</a>
+    <a href="#series"><svg><use href="#i-series"/></svg>Séries</a>
+    <a href="#previsao"><svg><use href="#i-previsao"/></svg>Previsão</a>
+    <a href="#verificacao"><svg><use href="#i-verificacao"/></svg>Previsto × observado</a>
+    <a href="#rio"><svg><use href="#i-rio"/></svg>Rio Paraguai</a>
+    <a href="#sobre"><svg><use href="#i-sobre"/></svg>Sobre</a>
   </nav>
 </header>
 
@@ -35,15 +59,12 @@
 
   <!-- ============================== VISÃO GERAL ============================== -->
   <section id="s-visao" class="secao">
-    <div class="faixa-enso" id="faixa-enso" hidden></div>
+    <div class="enso" id="faixa-enso" hidden></div>
     <div class="regiao-bar"><span>Região</span><div class="seg" id="agora-reg" aria-label="Região"></div></div>
 
     <div class="bloco">
       <div class="bloco-cab">
-        <div>
-          <h2>Últimos dias</h2>
-          <p class="sub" id="agora-sub"></p>
-        </div>
+        <div><h2>Últimos dias</h2><p class="sub" id="agora-sub"></p></div>
       </div>
       <div class="agora">
         <div class="tiles" id="agora-tiles"></div>
@@ -55,9 +76,9 @@
     </div>
 
     <div class="bloco">
-      <div class="bloco-cab"><div><h2 id="mes-titulo">Último mês completo</h2><p class="sub" id="mes-sub">Anomalias em relação a 1991–2020</p></div></div>
+      <div class="bloco-cab"><div><h2 id="mes-titulo">Último mês completo</h2><p class="sub" id="mes-sub"></p></div></div>
       <div class="tiles tiles-mes" id="cartoes"></div>
-      <p class="nota">SPI e SPEI: abaixo de −1 indica seca; abaixo de −2, seca extrema. Onda de calor: dias em sequências de 3 ou mais dias com temperatura máxima acima do percentil 90 da época do ano.</p>
+      <p class="nota">SPI e SPEI medem a seca: abaixo de −1, seca moderada; abaixo de −2, seca extrema. O SPI considera só a chuva; o SPEI desconta também a água perdida por evaporação, que cresce com o calor. Onda de calor: dias em sequências de 3 ou mais dias com temperatura máxima entre os 10% mais altos daquela época do ano.</p>
     </div>
 
     <div class="atalhos" id="atalhos"></div>
@@ -65,26 +86,26 @@
 
   <!-- ============================== MAPAS ============================== -->
   <section id="s-mapas" class="secao" hidden>
+    <div class="cab-secao"><h2>Mapas mensais</h2><p>Como cada mês se comparou ao normal em cada ponto da bacia. Arraste e use a roda do mouse (ou dois dedos) para aproximar; toque ou passe o cursor para ver o valor.</p></div>
     <div class="bloco">
       <div class="filtros">
         <label>Variável <select id="mapa-var"></select></label>
         <label>Mês <select id="mapa-mes"></select></label>
-        <div class="passos"><button id="mapa-ant" aria-label="Mês anterior">‹</button><button id="mapa-prox" aria-label="Mês seguinte">›</button></div>
+        <div class="passos"><button id="mapa-ant" type="button" aria-label="Mês anterior">‹</button><button id="mapa-prox" type="button" aria-label="Mês seguinte">›</button></div>
       </div>
-      <div class="mapa-grande">
-        <div class="mapa-wrap"><canvas id="mapa"></canvas></div>
-        <div class="legenda-mapa" id="mapa-leg"></div>
-        <p class="nota" id="mapa-nota"></p>
-      </div>
+      <div class="mapa-int" id="mapa"></div>
+      <div class="legenda-mapa" id="mapa-leg"></div>
+      <p class="nota" id="mapa-nota"></p>
     </div>
   </section>
 
   <!-- ============================== SÉRIES ============================== -->
   <section id="s-series" class="secao" hidden>
+    <div class="cab-secao"><h2>Séries no tempo</h2><p>Médias de cada região, mês a mês, com os períodos de El Niño destacados.</p></div>
     <div class="filtros">
       <label>Região <select id="ser-reg"></select></label>
       <label>Variável <select id="ser-var"></select></label>
-      <label>Período <select id="ser-per"><option value="24">2 anos</option><option value="60" selected>5 anos</option><option value="120">10 anos</option><option value="0">Tudo</option></select></label>
+      <label>Período <select id="ser-per"><option value="24">2 anos</option><option value="60" selected>5 anos</option><option value="120">10 anos</option><option value="0">Desde 1990</option></select></label>
     </div>
     <div class="bloco">
       <h2 id="ser-titulo"></h2>
@@ -93,20 +114,23 @@
       <details><summary>Ver tabela</summary><div class="tabela-wrap" id="ser-tab"></div></details>
     </div>
     <div class="bloco">
-      <h2>El Niño e La Niña <span class="sub" id="enso-sub"></span></h2>
+      <h2>El Niño e La Niña</h2>
+      <p class="sub" id="enso-sub"></p>
       <div class="legenda" id="enso-leg"></div>
       <div class="graf" id="ser-enso"></div>
     </div>
     <div class="bloco">
       <h2 id="hidro-titulo">Chuva acumulada no ano hidrológico</h2>
+      <p class="sub">O ano hidrológico vai de outubro a setembro: cerca de 80% da chuva anual da bacia cai entre outubro e março (Thielen et al., 2020).</p>
       <div class="legenda" id="hidro-leg"></div>
       <div class="graf" id="hidro-graf"></div>
-      <p class="nota">Ano hidrológico de outubro a setembro: cerca de 80% da chuva anual da bacia cai entre outubro e março (Thielen et al., 2020). Faixa: percentis 10 a 90 dos anos hidrológicos 1990/91–2019/20. O ponto vazado soma a chuva diária do mês em curso.</p>
+      <p class="nota nota-ast">* <strong>Faixa:</strong> em 8 de cada 10 anos hidrológicos de 1990/91 a 2019/20, a chuva acumulada até aquele mês ficou dentro dela; a linha tracejada é a mediana (metade dos anos acima, metade abaixo). É a variação natural entre os anos, não um intervalo de confiança.<br>** <strong>Ponto vazado:</strong> soma da chuva diária do mês em curso, ainda incompleto e com dados preliminares.</p>
     </div>
   </section>
 
   <!-- ============================== PREVISÃO ============================== -->
   <section id="s-previsao" class="secao" hidden>
+    <div class="cab-secao"><h2>Previsão para os próximos meses</h2><p>Quanto mais chuva ou calor que o normal os modelos de previsão sazonal indicam, mês a mês.</p></div>
     <div class="filtros">
       <label>Modelo <select id="prev-mod"></select></label>
       <label>Variável <select id="prev-var"><option value="chuva">Chuva (anomalia, mm/mês)</option><option value="temp">Temperatura (anomalia, °C)</option></select></label>
@@ -117,99 +141,140 @@
       <h2 id="prev-titulo"></h2>
       <div class="legenda" id="prev-leg"></div>
       <div class="graf" id="prev-graf"></div>
+      <p class="nota nota-ast">* <strong>Faixa dos membros:</strong> o modelo roda a mesma previsão dezenas de vezes (os "membros"), cada uma partindo de condições iniciais um pouco diferentes. A faixa reúne 80% desses membros e mostra a incerteza da previsão: quanto mais larga, menos o modelo tem certeza. Não é um intervalo de confiança estatístico.</p>
     </div>
     <div class="bloco">
       <h2>Mapa da previsão <span class="sub" id="prev-mapa-sub"></span></h2>
       <div class="botoes" id="prev-leads"></div>
-      <div class="mapa-grande">
-        <div class="mapa-wrap"><canvas id="prev-mapa"></canvas></div>
-        <div class="legenda-mapa" id="prev-mapa-leg"></div>
-      </div>
-      <p class="nota">Previsão sazonal do Copernicus Climate Change Service (C3S), grade de 1°. Anomalias em relação ao clima do próprio modelo em 1993–2016, o que remove o viés médio do modelo. A faixa do gráfico mostra os percentis 10 e 90 dos membros do conjunto. A chuva prevista para esta região tem destreza limitada: use junto com a aba "Previsto × observado".</p>
+      <div class="mapa-int mapa-medio" id="prev-mapa"></div>
+      <div class="legenda-mapa" id="prev-mapa-leg"></div>
+      <p class="nota">Previsão sazonal do Copernicus Climate Change Service (C3S), grade de 1° (cerca de 110 km). Anomalias em relação ao clima do próprio modelo em 1993–2016, o que remove o viés médio do modelo. A previsão de chuva para esta região tem acerto limitado: use junto com a aba "Previsto × observado".</p>
     </div>
   </section>
 
   <!-- ============================== VERIFICAÇÃO ============================== -->
   <section id="s-verificacao" class="secao" hidden>
+    <div class="cab-secao"><h2>Previsto × observado</h2><p>Os modelos acertaram? Cada mês já passado, comparado com o que foi previsto para ele.</p></div>
     <div class="filtros">
       <label>Modelo <select id="ver-mod"></select></label>
       <label>Variável <select id="ver-var"><option value="chuva">Chuva (mm/mês)</option><option value="temp">Temperatura (°C)</option></select></label>
       <label>Região <select id="ver-reg"></select></label>
-      <label>Antecedência <select id="ver-lead"></select></label>
+      <label>Antecedência da previsão <select id="ver-lead"></select></label>
     </div>
+    <p class="ajuda"><strong>Antecedência</strong> é com quantos meses de distância a previsão foi feita. Antecedência 1: previsão emitida no início do próprio mês. Antecedência 3: emitida dois meses antes (por exemplo, a previsão para dezembro feita no início de outubro). Quanto maior a antecedência, mais difícil acertar.</p>
     <div class="bloco">
       <h2 id="ver-titulo"></h2>
       <div class="legenda" id="ver-leg"></div>
       <div class="graf" id="ver-graf"></div>
     </div>
     <div class="bloco">
-      <h2>Erro por antecedência</h2>
+      <h2>Desempenho por antecedência</h2>
+      <p class="sub">Resumo de todos os meses já comparados, para o modelo, a variável e a região escolhidos.</p>
       <div class="tabela-wrap" id="ver-tab"></div>
-      <p class="nota">Cada ponto compara a anomalia prevista (média do conjunto) com a observada no mesmo mês-alvo, ambas em relação a 1993–2016. Antecedência 1 é o próprio mês em que a previsão foi emitida. Com poucos meses, esta comparação é descritiva e não mede a destreza do modelo.</p>
+      <dl class="glossario">
+        <dt>Erro médio</dt><dd>média de (previsto − observado). Negativo: o modelo previu menos chuva (ou menos calor) do que ocorreu; positivo, mais.</dd>
+        <dt>Erro típico</dt><dd>tamanho médio do erro, sem considerar o sinal.</dd>
+        <dt>Acertou o lado</dt><dd>meses em que previsão e observação ficaram do mesmo lado da média (as duas acima, ou as duas abaixo).</dd>
+        <dt>Dentro da faixa</dt><dd>meses em que o observado caiu dentro da faixa de 80% dos membros. Num modelo bem calibrado, espera-se cerca de 8 em cada 10.</dd>
+      </dl>
+      <p class="nota">Previsão e observação (CHIRPS para chuva; ERA5-Land, média de máxima e mínima, para temperatura) são anomalias em relação ao mesmo período, 1993–2016, e médias sobre a mesma região, o que as põe na mesma escala. Esta aba acompanha o desempenho dos modelos <strong>neste evento</strong>: com poucos meses, ela descreve o que aconteceu, mas não mede a qualidade geral dos modelos, que se avalia com décadas de re-previsões (Jolliffe &amp; Stephenson, 2012; para o SEAS5 na América do Sul, Gubler et al., 2020).</p>
     </div>
   </section>
 
   <!-- ============================== RIO ============================== -->
   <section id="s-rio" class="secao" hidden>
+    <div class="cab-secao"><h2>Rio Paraguai</h2><p>Nível diário da régua nas estações da ANA, comparado com o normal de cada dia do ano.</p></div>
     <div class="filtros"><label>Estação <select id="rio-est"></select></label></div>
     <div class="tiles" id="rio-tiles"></div>
     <div class="bloco">
       <h2 id="rio-titulo"></h2>
       <div class="legenda" id="rio-leg"></div>
+      <div class="anos-rio" id="rio-anos"></div>
       <div class="graf" id="rio-graf"></div>
-      <p class="nota">Nível diário (cm) da régua. Faixa: percentis 10 a 90 de cada dia do ano em 1991–2020. Fonte: Agência Nacional de Águas e Saneamento Básico (ANA).</p>
+      <p class="nota nota-ast">* <strong>Faixa:</strong> em 8 de cada 10 anos de 1991 a 2020, o nível naquele dia do ano ficou dentro dela; a linha tracejada é a mediana. É a variação natural entre os anos, não um intervalo de confiança.</p>
+      <p class="nota" id="rio-nota"></p>
     </div>
   </section>
 
   <!-- ============================== SOBRE ============================== -->
   <section id="s-sobre" class="secao" hidden>
-    <div class="bloco texto">
-      <h2>Sobre o painel</h2>
-      <p>Este painel acompanha a situação hidroclimática da Bacia do Alto Paraguai (BAP) no Brasil — o Pantanal e o planalto que o alimenta — e a previsão para os próximos meses, com atenção especial ao El Niño de 2026–27 e ao risco de incêndios. Ele complementa os sistemas nacionais de monitoramento com um recorte dedicado à bacia.</p>
-      <p><strong>Autor:</strong> Lucas Barros da Rosa, University of British Columbia.</p>
-      <p><strong>Como citar:</strong> <span id="citacao">Barros da Rosa, L. Painel Hidroclimático da Bacia do Alto Paraguai. University of British Columbia.</span></p>
-      <p><strong>Atualização:</strong> automática, duas vezes por semana. Mapas, séries e índices de seca usam meses completos e dados finais; o bloco "Últimos dias" usa dados diários, em parte preliminares.</p>
+    <div class="sobre-topo">
+      <div class="bloco sobre-intro">
+        <p class="rotulo">Sobre o painel</p>
+        <h2 class="titulo-grande">Clima e água na Bacia do Alto Paraguai, em um só lugar</h2>
+        <p>O painel acompanha a chuva, o calor, a seca e o nível do rio Paraguai na Bacia do Alto Paraguai (BAP) no Brasil — o Pantanal e o planalto que o alimenta — e mostra o que os modelos preveem para os próximos meses. O foco é o El Niño de 2026–27 e o que ele pode significar para a seca e o fogo na região.</p>
+        <p>Foi pensado para quem trabalha no território: brigadistas, gestores de unidades de conservação, pesquisadores, produtores e qualquer pessoa curiosa. Complementa, sem substituir, os boletins e alertas oficiais.</p>
+        <div class="fatos">
+          <div><span class="rotulo">Atualização</span><span>Automática, às segundas e quintas</span></div>
+          <div><span class="rotulo">Área</span><span>362 mil km² em MT e MS</span></div>
+          <div><span class="rotulo">Desde</span><span>1990, mês a mês</span></div>
+        </div>
+      </div>
+      <aside class="bloco autor">
+        <div class="avatar" aria-hidden="true">LB</div>
+        <p class="rotulo">Autor</p>
+        <h3>Lucas Barros da Rosa</h3>
+        <p class="inst">The University of British Columbia</p>
+        <div class="links">
+          <a href="https://www.linkedin.com/in/lucas-barros-da-rosa-57844a159/" target="_blank" rel="noopener"><svg><use href="#i-maleta"/></svg><span><b>LinkedIn</b><small>trajetória profissional</small></span></a>
+          <a href="https://www.researchgate.net/profile/Lucas-Barros-Rosa" target="_blank" rel="noopener"><svg><use href="#i-artigo"/></svg><span><b>ResearchGate</b><small>artigos científicos</small></span></a>
+          <a href="https://www.instagram.com/lucas.ecofire" target="_blank" rel="noopener"><svg><use href="#i-camera"/></svg><span><b>Instagram</b><small>@lucas.ecofire · divulgação científica</small></span></a>
+        </div>
+      </aside>
+    </div>
 
-      <h2>Dados e métodos</h2>
-      <ul class="metodos">
-        <li><strong>Regiões.</strong> <span id="txt-regioes">Bacia do Alto Paraguai no Brasil, dividida em planalto e Pantanal, norte (MT) e sul (MS).</span></li>
-        <li><strong>Chuva.</strong> <span id="txt-chuva">CHIRPS v3, 0,05°</span>, que combina estimativas de satélite com pluviômetros (Funk et al., 2026). Preferido à chuva do ERA5 porque, na reanálise, a precipitação vem do modelo e não é assimilada de observações, com os maiores erros nos trópicos (Lavers et al., 2022). O CHIRPS foi validado em Mato Grosso contra 154 pluviômetros, com bom desempenho em escala mensal (Uliana et al., 2024).</li>
-        <li><strong>Chuva dos últimos dias.</strong> CHIRPS v3 diário: versão final quando disponível e preliminar nos dias mais recentes. A normal de cada janela de 30 e 90 dias é obtida das médias mensais de 1991–2020 por harmônicos que preservam as médias mensais (Epstein, 1991).</li>
-        <li><strong>Temperatura.</strong> ERA5-Land, 0,1°, temperatura horária a 2 m, da qual se tiram as máximas e mínimas de cada dia em hora local, UTC−4 (Muñoz-Sabater et al., 2021). A máxima é a variável principal, por ser a mais ligada à secura do ar e ao fogo no Pantanal (Libonati et al., 2022); a média mensal é (Tmax + Tmin)/2.</li>
-        <li><strong>Anomalias.</strong> Diferença em relação à normal 1991–2020 (WMO, 2017).</li>
-        <li><strong>SPI.</strong> Índice de precipitação padronizado em 1, 3, 6 e 12 meses, distribuição gama (McKee et al., 1993; Thom, 1958).</li>
-        <li><strong>SPEI.</strong> Índice padronizado de precipitação-evapotranspiração, distribuição log-logística (Vicente-Serrano et al., 2010), com evapotranspiração de referência de Hargreaves &amp; Samani (1985).</li>
-        <li><strong>Ondas de calor.</strong> Dias em sequências de pelo menos 3 dias com Tmax acima do percentil 90 do dia do calendário, janela de 15 dias (CTX90pct; Perkins &amp; Alexander, 2013).</li>
-        <li><strong>El Niño.</strong> Índice Oceânico Niño Relativo (RONI), índice oficial da NOAA desde fevereiro de 2026 (L'Heureux et al., 2024). Um evento começa no primeiro de pelo menos 5 trimestres móveis consecutivos com RONI ≥ +0,5 °C (critério da NOAA/CPC); o mês marcado é o central desse trimestre.</li>
-        <li><strong>Previsão sazonal.</strong> Sistemas do Copernicus C3S, com o ECMWF SEAS5 como referência (Johnson et al., 2019; avaliado para a América do Sul por Gubler et al., 2020). Anomalias em relação ao clima do modelo em 1993–2016.</li>
-        <li><strong>Rio Paraguai.</strong> Níveis diários da rede da ANA.</li>
-      </ul>
+    <div class="bloco citar">
+      <div><p class="rotulo">Como citar</p><p id="citacao">Barros da Rosa, L. Painel Hidroclimático da Bacia do Alto Paraguai. The University of British Columbia.</p></div>
+      <button type="button" id="copiar-cit"><svg><use href="#i-copiar"/></svg><span>Copiar</span></button>
+    </div>
 
-      <h2>Referências</h2>
-      <ul class="refs">
-        <li>Epstein, E. S. (1991). On obtaining daily climatological values from monthly means. <em>Journal of Climate</em>, 4(3), 365–368.</li>
-        <li>Funk, C. et al. (2026). The Climate Hazards Center Infrared Precipitation with Stations, Version 3. <em>Scientific Data</em>, 13, 718. doi:10.1038/s41597-026-07096-4</li>
-        <li>Gubler, S. et al. (2020). Assessment of ECMWF SEAS5 seasonal forecast performance over South America. <em>Weather and Forecasting</em>, 35(2), 561–584.</li>
-        <li>Hargreaves, G. H. &amp; Samani, Z. A. (1985). Reference crop evapotranspiration from temperature. <em>Applied Engineering in Agriculture</em>, 1(2), 96–99.</li>
-        <li>IBGE (2019). <em>Biomas e sistema costeiro-marinho do Brasil: compatível com a escala 1:250.000</em>. Rio de Janeiro: IBGE.</li>
-        <li>Johnson, S. J. et al. (2019). SEAS5: the new ECMWF seasonal forecast system. <em>Geoscientific Model Development</em>, 12, 1087–1117.</li>
-        <li>L'Heureux, M. L. et al. (2024). A relative sea surface temperature index for classifying ENSO events in a changing climate. <em>Journal of Climate</em>. doi:10.1175/JCLI-D-23-0406.1</li>
-        <li>Lavers, D. A., Simmons, A., Vamborg, F. &amp; Rodwell, M. J. (2022). An evaluation of ERA5 precipitation for climate monitoring. <em>Quarterly Journal of the Royal Meteorological Society</em>, 148, 3152–3165.</li>
-        <li>Libonati, R. et al. (2022). Assessing the role of compound drought and heatwave events on unprecedented 2020 wildfires in the Pantanal. <em>Environmental Research Letters</em>, 17, 015005.</li>
-        <li>McKee, T. B., Doesken, N. J. &amp; Kleist, J. (1993). The relationship of drought frequency and duration to time scales. <em>8th Conference on Applied Climatology</em>, AMS.</li>
-        <li>Muñoz-Sabater, J. et al. (2021). ERA5-Land: a state-of-the-art global reanalysis dataset for land applications. <em>Earth System Science Data</em>, 13, 4349–4383.</li>
-        <li>Perkins, S. E. &amp; Alexander, L. V. (2013). On the measurement of heat waves. <em>Journal of Climate</em>, 26(13), 4500–4517.</li>
-        <li>Thielen, D. et al. (2020). Quo vadis Pantanal? Expected precipitation extremes and drought dynamics from changing sea surface temperature. <em>PLOS ONE</em>, 15(1), e0227437.</li>
-        <li>Thom, H. C. S. (1958). A note on the gamma distribution. <em>Monthly Weather Review</em>, 86(4), 117–122.</li>
-        <li>Uliana, E. M. et al. (2024). Validação e análise espaço-temporal de dados de precipitação obtidos por sensoriamento remoto CHIRPS para o estado de Mato Grosso, Brasil. <em>Revista Brasileira de Climatologia</em>, 35(20), 630–654. doi:10.55761/abclima.v35i20.18858</li>
-        <li>Vicente-Serrano, S. M., Beguería, S. &amp; López-Moreno, J. I. (2010). A multiscalar drought index sensitive to global warming: the SPEI. <em>Journal of Climate</em>, 23(7), 1696–1718.</li>
-        <li>WMO (2017). <em>WMO Guidelines on the Calculation of Climate Normals</em>. WMO-No. 1203.</li>
-      </ul>
+    <div class="bloco">
+      <p class="rotulo">Dados e métodos</p>
+      <h2 class="titulo-medio">De onde vêm os números</h2>
+      <div class="metodos">
+        <div><h3>Regiões</h3><p id="txt-regioes">Bacia do Alto Paraguai no Brasil, dividida em planalto e Pantanal, nas partes de Mato Grosso (MT) e de Mato Grosso do Sul (MS).</p></div>
+        <div><h3>Chuva</h3><p><span id="txt-chuva">CHIRPS v3, 0,05°</span>, que combina satélite e pluviômetros (Funk et al., 2026). Preferido à chuva do ERA5 porque, na reanálise, a precipitação vem do modelo e não de observações, com os maiores erros nos trópicos (Lavers et al., 2022). Validado em Mato Grosso contra 154 pluviômetros, com bom desempenho mensal (Uliana et al., 2024).</p></div>
+        <div><h3>Chuva dos últimos dias</h3><p>CHIRPS v3 diário: versão final quando disponível e preliminar nos dias mais recentes. O normal de cada janela de 30 e 90 dias sai das médias mensais de 1991–2020, distribuídas dia a dia por harmônicos que preservam as médias mensais (Epstein, 1991).</p></div>
+        <div><h3>Temperatura</h3><p>ERA5-Land, 0,1°: temperatura horária a 2 m, da qual se tiram a máxima e a mínima de cada dia em hora local, UTC−4 (Muñoz-Sabater et al., 2021). A máxima é a variável principal, por ser a mais ligada à secura do ar e ao fogo no Pantanal (Libonati et al., 2022); a média mensal é (máxima + mínima)/2.</p></div>
+        <div><h3>Anomalias</h3><p>Diferença em relação ao normal de 1991–2020, o período de referência da Organização Meteorológica Mundial (WMO, 2017).</p></div>
+        <div><h3>Seca: SPI e SPEI</h3><p>O SPI compara a chuva acumulada em 1, 3, 6 ou 12 meses com a de todos os anos, na escala de desvios-padrão (distribuição gama; McKee et al., 1993; Thom, 1958). O SPEI faz o mesmo com a chuva menos a evapotranspiração (Vicente-Serrano et al., 2010), estimada pelo método de Hargreaves &amp; Samani (1985).</p></div>
+        <div><h3>Ondas de calor</h3><p>Dias em sequências de pelo menos 3 dias com máxima acima do percentil 90 daquele dia do calendário, em janela de 15 dias (CTX90pct; Perkins &amp; Alexander, 2013).</p></div>
+        <div><h3>El Niño</h3><p>Índice oficial da NOAA desde fevereiro de 2026, o RONI: temperatura do mar na região Niño 3.4, no Pacífico equatorial, em média de 3 meses e descontado o aquecimento de todo o oceano tropical (L'Heureux et al., 2024). Um evento começa no primeiro de pelo menos 5 trimestres seguidos com RONI ≥ +0,5 °C (critério da NOAA); o mês marcado é o central desse trimestre. Enquanto o evento em curso não completa 5 trimestres, o início é mostrado como provisório.</p></div>
+        <div><h3>Previsão sazonal</h3><p>Sistemas do Copernicus C3S, com o ECMWF SEAS5 como referência (Johnson et al., 2019; avaliado para a América do Sul por Gubler et al., 2020) e o CMCC SPS4 como segunda opinião. Anomalias em relação ao clima de cada modelo em 1993–2016.</p></div>
+        <div><h3>Rio Paraguai</h3><p>Níveis diários da rede hidrometeorológica da ANA. Em Cáceres, perto das cabeceiras, o rio responde em dias às chuvas; em Ladário e Porto Murtinho, depois de atravessar o Pantanal, a cheia chega meses depois e bem mais suave (Hamilton et al., 1996).</p></div>
+      </div>
+    </div>
+
+    <div class="bloco">
+      <details class="refs-det">
+        <summary><span class="rotulo">Referências</span> <span id="n-refs"></span></summary>
+        <ul class="refs" id="refs">
+          <li>Epstein, E. S. (1991). On obtaining daily climatological values from monthly means. <em>Journal of Climate</em>, 4(3), 365–368.</li>
+          <li>Funk, C. et al. (2026). The Climate Hazards Center Infrared Precipitation with Stations, Version 3. <em>Scientific Data</em>, 13, 718. doi:10.1038/s41597-026-07096-4</li>
+          <li>Gubler, S. et al. (2020). Assessment of ECMWF SEAS5 seasonal forecast performance over South America. <em>Weather and Forecasting</em>, 35(2), 561–584.</li>
+          <li>Hamilton, S. K., Sippel, S. J. &amp; Melack, J. M. (1996). Inundation patterns in the Pantanal wetland of South America determined from passive microwave remote sensing. <em>Archiv für Hydrobiologie</em>, 137(1), 1–23.</li>
+          <li>Hargreaves, G. H. &amp; Samani, Z. A. (1985). Reference crop evapotranspiration from temperature. <em>Applied Engineering in Agriculture</em>, 1(2), 96–99.</li>
+          <li>IBGE (2019). <em>Biomas e sistema costeiro-marinho do Brasil: compatível com a escala 1:250.000</em>. Rio de Janeiro: IBGE.</li>
+          <li>Johnson, S. J. et al. (2019). SEAS5: the new ECMWF seasonal forecast system. <em>Geoscientific Model Development</em>, 12, 1087–1117.</li>
+          <li>Jolliffe, I. T. &amp; Stephenson, D. B. (eds.) (2012). <em>Forecast Verification: A Practitioner's Guide in Atmospheric Science</em>, 2nd ed. Wiley.</li>
+          <li>L'Heureux, M. L. et al. (2024). A relative sea surface temperature index for classifying ENSO events in a changing climate. <em>Journal of Climate</em>. doi:10.1175/JCLI-D-23-0406.1</li>
+          <li>Lavers, D. A., Simmons, A., Vamborg, F. &amp; Rodwell, M. J. (2022). An evaluation of ERA5 precipitation for climate monitoring. <em>Quarterly Journal of the Royal Meteorological Society</em>, 148, 3152–3165.</li>
+          <li>Libonati, R. et al. (2022). Assessing the role of compound drought and heatwave events on unprecedented 2020 wildfires in the Pantanal. <em>Environmental Research Letters</em>, 17, 015005.</li>
+          <li>McKee, T. B., Doesken, N. J. &amp; Kleist, J. (1993). The relationship of drought frequency and duration to time scales. <em>8th Conference on Applied Climatology</em>, AMS.</li>
+          <li>Muñoz-Sabater, J. et al. (2021). ERA5-Land: a state-of-the-art global reanalysis dataset for land applications. <em>Earth System Science Data</em>, 13, 4349–4383.</li>
+          <li>Perkins, S. E. &amp; Alexander, L. V. (2013). On the measurement of heat waves. <em>Journal of Climate</em>, 26(13), 4500–4517.</li>
+          <li>Thielen, D. et al. (2020). Quo vadis Pantanal? Expected precipitation extremes and drought dynamics from changing sea surface temperature. <em>PLOS ONE</em>, 15(1), e0227437.</li>
+          <li>Thom, H. C. S. (1958). A note on the gamma distribution. <em>Monthly Weather Review</em>, 86(4), 117–122.</li>
+          <li>Uliana, E. M. et al. (2024). Validação e análise espaço-temporal de dados de precipitação obtidos por sensoriamento remoto CHIRPS para o estado de Mato Grosso, Brasil. <em>Revista Brasileira de Climatologia</em>, 35(20), 630–654. doi:10.55761/abclima.v35i20.18858</li>
+          <li>Vicente-Serrano, S. M., Beguería, S. &amp; López-Moreno, J. I. (2010). A multiscalar drought index sensitive to global warming: the SPEI. <em>Journal of Climate</em>, 23(7), 1696–1718.</li>
+          <li>WMO (2017). <em>WMO Guidelines on the Calculation of Climate Normals</em>. WMO-No. 1203.</li>
+        </ul>
+      </details>
     </div>
   </section>
 
   <section id="s-vazio" class="secao" hidden>
-    <div class="bloco texto">
+    <div class="bloco">
       <h2>Dados ainda não gerados</h2>
       <p>O painel não encontrou a pasta <code>dados/</code>. Rode <code>python atualizar_dados.py</code> na pasta <code>pipeline</code> e publique o site de novo.</p>
     </div>
@@ -217,10 +282,11 @@
 </main>
 
 <footer class="rodape">
-  <p>© <span id="ano"></span> Lucas Barros da Rosa · University of British Columbia</p>
-  <p>Dados: CHIRPS (UCSB/CHC), ERA5-Land e C3S (Copernicus/ECMWF), ANA, IBGE, NOAA/CPC. Produto experimental de pesquisa; não substitui os boletins e alertas oficiais.</p>
+  <p><strong>Painel Hidroclimático da Bacia do Alto Paraguai</strong> · <a href="#sobre">Lucas Barros da Rosa, The University of British Columbia</a> · © <span id="ano"></span></p>
+  <p>Dados: CHIRPS (UCSB/CHC), ERA5-Land e C3S (Copernicus/ECMWF), ANA, IBGE, NOAA/CPC. Mapas base: Esri. Produto experimental de pesquisa; não substitui os boletins e alertas oficiais.</p>
 </footer>
 <div class="dica" id="dica-graf" hidden></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-/* Painel Hidroclimático da Bacia do Alto Paraguai — Lucas Barros da Rosa (The University of British Columbia)
+/* Painel Hidroclimático da Bacia do Alto Paraguai — Lucas Barros da Rosa
    Gráficos em SVG feitos aqui; mapas interativos com Leaflet e mapas base da Esri (se o Leaflet não carregar,
    os mapas viram imagens fixas em <canvas>). Lê os arquivos de dados/ gerados pelo pipeline. */
 (function () {
@@ -496,7 +496,7 @@ async function mapasDesenhar() {
   mapaInterativo('mapa', m, esc);
   legendaMapa($('mapa-leg'), esc, v[1] + (esc.un && v[1].indexOf('(') < 0 ? ' (' + esc.un + ')' : '') + ' — ' + fmtMesL(mes));
   $('mapa-nota').textContent = (v[2] === 'calor' ? 'Número de dias do mês em onda de calor (CTX90pct). ' : v[2] === 'spi' ? 'Índice de seca: abaixo de −1, seca moderada; abaixo de −2, seca extrema. ' : 'Diferença em relação à média de 1991–2020. ') +
-    'Cada quadradinho tem ' + num(m.d, 2) + '° de lado, cerca de ' + num(m.d * 111, 0) + ' km (' + (m.d < 0.08 ? 'CHIRPS' : 'ERA5-Land') + '). Linhas: limites da bacia, do Pantanal e da divisa MT/MS.';
+    'Cada quadrícula tem ' + num(m.d, 2) + '° de lado, cerca de ' + num(m.d * 111, 0) + ' km (' + (m.d < 0.08 ? 'CHIRPS' : 'ERA5-Land') + '). Linhas: limites da bacia, do Pantanal e da divisa MT/MS.';
 }
 
 /* ---------- Séries ---------- */
@@ -704,7 +704,7 @@ async function iniciar() {
   }
   $('aviso-demo').hidden = !D.meta.demo;
   $('atual').textContent = 'Atualizado em ' + fmtDataC(D.meta.atualizado.slice(0, 10));
-  $('citacao').textContent = 'Barros da Rosa, L. (' + D.meta.atualizado.slice(0, 4) + '). Painel Hidroclimático da Bacia do Alto Paraguai. The University of British Columbia. Disponível em: ' + location.origin + location.pathname + '. Acesso em: ' + fmtDataC(new Date().toISOString().slice(0, 10)) + '.';
+  $('citacao').textContent = 'Barros da Rosa, L. (' + D.meta.atualizado.slice(0, 4) + '). Painel Hidroclimático da Bacia do Alto Paraguai [painel on-line]. Disponível em: ' + location.origin + location.pathname + '. Acesso em: ' + fmtDataC(new Date().toISOString().slice(0, 10)) + '.';
   $('copiar-cit').onclick = () => { try { navigator.clipboard.writeText($('citacao').textContent); $('copiar-cit').querySelector('span').textContent = 'Copiado'; } catch (e) {} };
   const F = D.meta.fontes || {}; if (F.regioes) $('txt-regioes').textContent = F.regioes; if (F.chuva) $('txt-chuva').textContent = F.chuva;
   mapasIniciar(); seriesIniciar();

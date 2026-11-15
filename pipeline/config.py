@@ -70,6 +70,7 @@ EL_NINO_AVISO = "2026-06-11"           # data em que a NOAA emitiu o "El Niño A
 # Precisa de uma chave gratuita (MAP_KEY): segredo FIRMS_MAP_KEY no GitHub, ou arquivo ~/.firms_key no seu computador.
 FIRMS_API = "https://firms.modaps.eosdis.nasa.gov/api/"
 FIRMS_INICIO = "2003-01-01"            # primeiro ano completo do Aqua
+FIRMS_ESPERAS = 8                      # quantas vezes esperar o limite de pedidos da chave renovar (10 min cada)
 FIRMS_DIAS = 5                         # dias por pedido à API de área do FIRMS (o limite da API)
 FIRMS_CONF_MIN = 30                    # exclui focos de baixa confiança (< 30%; Giglio et al., 2016)
 FOCOS_RUPTURA = 2014                  # mudança do regime de fogo do Pantanal (ruptura na área queimada; Barros-Rosa et al., 2026):

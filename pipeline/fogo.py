@@ -41,8 +41,16 @@ def _firms_bloco(chave, fonte, d0, n):
     import requests
     w, s, e, n_ = C.LON0, C.LAT0 - C.ALT, C.LON0 + C.LARG, C.LAT0
     url = f"{C.FIRMS_API}area/csv/{chave}/{fonte}/{w:.2f},{s:.2f},{e:.2f},{n_:.2f}/{n}/{d0}"
-    r = tentar(lambda: requests.get(url, timeout=120), vezes=3, espera=30)
-    txt = r.text.strip()
+    for vez in range(C.FIRMS_ESPERAS + 1):
+        r = tentar(lambda: requests.get(url, timeout=120), vezes=3, espera=30)
+        txt = r.text.strip()
+        if "transaction limit" in txt.lower() and vez < C.FIRMS_ESPERAS:
+            # limite da chave: 5000 transações a cada 10 min; espera a janela renovar e continua
+            log("   FIRMS: limite de pedidos da chave atingido; espero 10 min e continuo")
+            checar_tempo()
+            time.sleep(10.5 * 60)
+            continue
+        break
     if r.status_code != 200:
         raise RuntimeError(f"FIRMS HTTP {r.status_code}: {txt[:300]}")
     if not txt.lower().startswith("latitude"):
@@ -85,6 +93,8 @@ def focos():
             checar_tempo()
             b = _firms_bloco(chave, "MODIS_SP", str(d), n)
             json.dump(b, open(arq, "w")); regs += b; n_novos += 1
+            if n_novos % 73 == 0:                                  # ~1 ano de blocos de 5 dias
+                log(f"   FIRMS: arquivo consolidado baixado até {d + n - 1}")
             time.sleep(0.4)
         d += np.timedelta64(n, "D")
     if n_novos:

@@ -122,7 +122,7 @@ def gerar_saida(P, anos_p, meses_p, tmax, tmin, datas, m05, m10, geo, previsoes=
 
     # ---------------- séries regionais
     log("Calculando séries regionais…")
-    series, reg_P, reg_T = {}, {}, {}
+    series, reg_P, reg_T, sq = {}, {}, {}, {}
     for r in REGIOES:
         k05, k10 = masc(m05, r), masc(m10, r)
         p = pr.media_regional(P, k05, w05)
@@ -140,14 +140,7 @@ def gerar_saida(P, anos_p, meses_p, tmax, tmin, datas, m05, m10, geo, previsoes=
         for k in pr.ESCALAS:
             s[f"spi{k}"] = arred(pr.spi(p[:, None], anos, meses, k)[:, 0], 2)
             s[f"spei{k}"] = arred(pr.spei((p - et)[:, None], anos, meses, k)[:, 0], 2)
-        # seca e calor juntos: SPEI-3 <= -1 e Tmax do mês acima do percentil 90 daquele mês em 1991-2020
-        sp3 = pr.spei((p - et)[:, None], anos, meses, 3)[:, 0]
-        ref = (anos >= pr.REF_INI) & (anos <= pr.REF_FIM)
-        p90 = np.array([np.nanpercentile(tx[ref & (meses == m)], 90) if np.isfinite(tx[ref & (meses == m)]).any() else np.nan
-                        for m in range(1, 13)])
-        seco, quente = sp3 <= -1, tx > p90[meses - 1]
-        cod = np.where(np.isfinite(sp3) & np.isfinite(tx), seco * 2 + quente, np.nan)
-        s["seco_quente"] = arred(cod, 0)
+        sq[r["id"]] = seca_calor(tmax, datas, onda, limiar, k10, w10)
         series[r["id"]] = s
         reg_P[r["id"]], reg_T[r["id"]] = p, tm
     # ---------------- El Niño: série, eventos e início do evento atual
@@ -182,6 +175,7 @@ def gerar_saida(P, anos_p, meses_p, tmax, tmin, datas, m05, m10, geo, previsoes=
             v = np.array([np.nan if x is None else x for x in mens[r["id"]]], float)
             series[r["id"]]["fwi"] = arred(v, 1)
             series[r["id"]]["fwi_clim"] = arred(pr.climatologia_mensal(v, anos, meses)[meses - 1], 1)
+    fogo_json["seca_calor"] = {"temporada": C.TEMPORADA_FOGO, "ref": f"{pr.REF_INI}–{pr.REF_FIM}", "regioes": sq}
     grava(C.SAIDA / "fogo.json", fogo_json)
 
     grava(C.SAIDA / "series.json", {"meses": rot, "regioes": series, "enso": info_enso, "hidro": hidro})
@@ -294,6 +288,40 @@ def ano_hidrologico_json(reg_P, anos, meses, chuva_diaria, m05, w05, masc):
                                   "valor": round(base + v), "preliminar": ini_prelim is not None}
         out["regioes"][r["id"]] = reg
     return out
+
+
+def seca_calor(tmax, datas, onda, limiar, k10, w10):
+    """Ondas de calor para o bloco "seca e calor juntos" (Libonati et al., 2022; Belém et al., 2026).
+    - anual: % da região × dias da temporada de fogo (jun-out) em onda de calor, calculada célula a célula
+      (%Pantanal_HW de Belém et al., 2026, ponderada pela área);
+    - diário (últimos 365 dias): Tmax média da região e percentil 90 do dia do calendário (média regional do
+      limiar de cada célula), com os dias em que a média regional ficou acima dele por 3 dias ou mais."""
+    fr = np.concatenate([pr.media_regional(onda[i:i + 1500].astype(np.float32), k10, w10) for i in range(0, len(datas), 1500)])
+    td = np.concatenate([pr.media_regional(tmax[i:i + 1500], k10, w10) for i in range(0, len(datas), 1500)])
+    lim = pr.media_regional(limiar, k10, w10)
+    doy = pr.dia_do_ano_365(datas)
+    onda_reg = pr.dias_onda_calor(td[:, None, None], datas, lim[:, None, None])[:, 0, 0]
+    anos = datas.astype("datetime64[Y]").astype(int) + 1970
+    mes = datas.astype("datetime64[M]").astype(int) % 12 + 1
+    m0, m1 = C.TEMPORADA_FOGO
+    temp = (mes >= m0) & (mes <= m1)
+    n_temp = sum(pd_dias(2001, m) for m in range(m0, m1 + 1))                       # dias da temporada (153)
+    anual = {}
+    for a in np.unique(anos):
+        sel = temp & (anos == a)
+        if sel.sum() >= 0.9 * n_temp:
+            anual[str(a)] = {"pct": round(float(100 * fr[sel].mean()), 1)}
+        elif sel.sum() >= 15 and a == anos[-1]:
+            anual[str(a)] = {"pct": round(float(100 * fr[sel].mean()), 1), "parcial": True, "ate": str(datas[sel][-1])}
+    rec = slice(max(0, len(datas) - 365), len(datas))
+    return {"anual": anual,
+            "diario": {"datas": [str(z) for z in datas[rec]], "tmax": arred(td[rec], 1), "p90": arred(lim[doy[rec] - 1], 1),
+                       "onda": [int(z) for z in onda_reg[rec]]},
+            "dias_onda_30": int(onda_reg[-30:].sum())}
+
+
+def pd_dias(a, m):
+    return (dt.date(a + m // 12, m % 12 + 1, 1) - dt.date(a, m, 1)).days
 
 
 def agora_json(P_clim, chuva_diaria, tmax, datas, onda, m05, m10, w05, w10, masc):

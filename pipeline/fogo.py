@@ -44,9 +44,10 @@ def _firms_bloco(chave, fonte, d0, n):
     for vez in range(C.FIRMS_ESPERAS + 1):
         r = tentar(lambda: requests.get(url, timeout=120), vezes=3, espera=30)
         txt = r.text.strip()
-        if "transaction limit" in txt.lower() and vez < C.FIRMS_ESPERAS:
-            # limite da chave: 5000 transações a cada 10 min; espera a janela renovar e continua
-            log("   FIRMS: limite de pedidos da chave atingido; espero 10 min e continuo")
+        if ("transaction limit" in txt.lower() or "invalid map_key" in txt.lower()) and vez < C.FIRMS_ESPERAS:
+            # limite da chave (5000 transações a cada 10 min) ou recusa passageira da chave (já vista no meio
+            # da carga inicial, com a chave válida): espera a janela renovar e tenta de novo
+            log(f"   FIRMS recusou ({txt[:60]}); espero 10 min e continuo")
             checar_tempo()
             time.sleep(10.5 * 60)
             continue
@@ -286,32 +287,49 @@ def fwi_diario():
     return x[u], d[u], la, lo
 
 
+def _media_movel(s, n=7):
+    """Média dos n dias que terminam em cada dia (NaN se faltar algum dia)."""
+    k = np.ones(n)
+    soma = np.convolve(np.nan_to_num(s), k, "full")[:len(s)]
+    cont = np.convolve(np.isfinite(s).astype(float), k, "full")[:len(s)]
+    return np.where(cont == n, soma / n, np.nan)
+
+
 def fwi_json(x, d, lats, lons, m10, regioes, rot_meses, w10):
-    """Série dos últimos 180 dias com a climatologia do dia do ano, mapa do último dia e médias mensais."""
+    """Últimos 180 dias: FWI diário e média de 7 dias, com o percentil 50 e 90 da média de 7 dias para o dia do
+    ano (1991-2020, janela de ±7 dias). Mapa: média dos últimos 7 dias. Médias mensais para as séries."""
     iy = np.abs(lats[:, None] - G10["lats"][None, :]).argmin(axis=0)
     ix = np.abs(lons[:, None] - G10["lons"][None, :]).argmin(axis=0)
     doy = pr.dia_do_ano_365(d)
     anos = d.astype("datetime64[Y]").astype(int) + 1970
     ref = (anos >= pr.REF_INI) & (anos <= pr.REF_FIM)
-    out = {"regioes": {}, "ultimo": str(d[-1]), "ref": f"{pr.REF_INI}–{pr.REF_FIM}", "ref_anos": int(len(np.unique(anos[ref])))}
+    N = 7
+    out = {"regioes": {}, "ultimo": str(d[-1]), "de7": str(d[-N]), "n_media": N,
+           "ref": f"{pr.REF_INI}–{pr.REF_FIM}", "ref_anos": int(len(np.unique(anos[ref])))}
     mensal = {}
     rec = slice(max(0, len(d) - 180), len(d))
+    janela = lambda q: np.abs(((doy - q + 182) % 365) - 182) <= 7          # ±7 dias, circular
     for r in regioes:
         k10 = (m10 > 0) if r["cod"] is None else (m10 == r["cod"])
         serie = np.concatenate([pr.media_regional(x[i:i + 1000][:, iy][:, :, ix], k10, w10) for i in range(0, len(x), 1000)])
-        p50, p90 = np.full(365, np.nan), np.full(365, np.nan)
+        s7 = _media_movel(serie, N)
+        p50, p90, p90d = (np.full(365, np.nan) for _ in range(3))
         for q in range(1, 366):
-            janela = np.abs(((doy - q + 182) % 365) - 182) <= 7         # ±7 dias, circular
-            v = serie[ref & janela]
-            if len(v) > 30:
-                p50[q - 1], p90[q - 1] = np.percentile(v, 50), np.percentile(v, 90)
+            j = ref & janela(q)
+            v7 = s7[j][np.isfinite(s7[j])]
+            if len(v7) > 30:
+                p50[q - 1], p90[q - 1] = np.percentile(v7, 50), np.percentile(v7, 90)
+            if j.sum() > 30:
+                p90d[q - 1] = np.nanpercentile(serie[j], 90)
         dr = doy[rec] - 1
-        ult = float(serie[-1])
-        v_hoje = serie[ref & (np.abs(((doy - doy[-1] + 182) % 365) - 182) <= 7)]
-        out["regioes"][r["id"]] = {"datas": [str(z) for z in d[rec]], "v": arred(serie[rec], 1),
-                                   "p50": arred(p50[dr], 1), "p90": arred(p90[dr], 1), "ultimo": round(ult, 1),
-                                   "percentil": round(float((v_hoje < ult).mean() * 100)) if len(v_hoje) else None,
-                                   "dias_acima_p90_30": int(np.sum(serie[-30:] > p90[doy[-30:] - 1]))}
+        m7 = float(s7[-1])
+        v_hoje = s7[ref & janela(doy[-1])]
+        v_hoje = v_hoje[np.isfinite(v_hoje)]
+        out["regioes"][r["id"]] = {"datas": [str(z) for z in d[rec]], "v": arred(serie[rec], 1), "m7": arred(s7[rec], 1),
+                                   "p50": arred(p50[dr], 1), "p90": arred(p90[dr], 1),
+                                   "ultimo": round(float(serie[-1]), 1), "media7": round(m7, 1),
+                                   "percentil": round(float((v_hoje < m7).mean() * 100)) if len(v_hoje) and np.isfinite(m7) else None,
+                                   "dias_acima_p90_30": int(np.sum(serie[-30:] > p90d[doy[-30:] - 1]))}
         mm = {}
         for dd, v in zip(d.astype("datetime64[M]"), serie):
             mm.setdefault(str(dd), []).append(v)
@@ -320,5 +338,5 @@ def fwi_json(x, d, lats, lons, m10, regioes, rot_meses, w10):
     cima = lats.max() + passo / 2
     ordem = np.argsort(-lats)
     out["mapa"] = {"lon0": float(lons.min() - passo / 2), "lat0": float(cima), "d": passo, "nx": len(lons), "ny": len(lats),
-                   "v": arred(x[-1][ordem][:, np.argsort(lons)], 1), "data": str(d[-1])}
+                   "v": arred(np.nanmean(x[-N:], axis=0)[ordem][:, np.argsort(lons)], 1), "de": str(d[-N]), "data": str(d[-1])}
     return out, mensal

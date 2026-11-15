@@ -77,6 +77,7 @@ FOCOS_RUPTURA = 2014                  # mudança do regime de fogo do Pantanal (
                                        # focos comparados com o regime anterior (2003-2013) e com o recente (2014 até o último ano completo)
 # Perigo de fogo: FWI do Copernicus Emergency Management Service (reanálise ERA5), no Early Warning Data Store
 EWDS_URL = "https://ewds.climate.copernicus.eu/api"
+TEMPORADA_FOGO = (6, 10)              # junho a outubro (Belém et al., 2026)
 FWI_ANO_INICIAL = 1991                 # início da normal 1991-2020
 FWI_ATRASO_DIAS = 3
 FWI_PEDIDO_TROCA = {}                  # ajustes no pedido ao EWDS, se necessário (ver testar_fogo.py)

@@ -254,3 +254,9 @@ code{background:var(--meio);padding:1px 5px;border-radius:4px;font-size:13px}
   .atual{display:none} .tema span{display:none} .cab-secao h2{font-size:19px}
   .agora .tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
+
+/* seca e calor */
+.explica-bloco{background:var(--sup2);border-left:3px solid var(--nino);border-radius:6px;padding:10px 14px;margin:6px 0 14px;font-size:13.5px;line-height:1.55;color:var(--tinta2)}
+.explica-bloco p{margin:0}
+.sub-tit{font-size:14.5px;margin:18px 0 2px}
+.faixa-seca{margin-top:-4px}

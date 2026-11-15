@@ -50,6 +50,8 @@ const ESC = {
   temp: { un: '°C', casas: 1, q: [-4, -3, -2, -1, -0.5, 0.5, 1, 2, 3, 4], cores: () => divergente(FRIO, QUENTE, 5), sinal: true },
   calor: { un: 'dias', casas: 0, q: [1, 3, 5, 10, 15, 20], cores: () => [css('--meio')].concat(rampa(['#fdd9bf', '#f08a4b', '#b9340f', '#6b1505'], 6)) },
   prev_chuva: { un: 'mm/mês', casas: 0, q: [-100, -50, -25, -10, -5, 5, 10, 25, 50, 100], cores: () => divergente(SECO, UMIDO, 5), sinal: true },
+  fwi: { un: '', casas: 1, q: [5.2, 11.2, 21.3, 38, 50], cores: () => ['#3f8f5a', '#e8d26a', '#f2a03d', '#e2582c', '#a8201a', '#5c0f2e'],
+    nomes: ['baixo', 'moderado', 'alto', 'muito alto', 'extremo', 'muito extremo'] },
   prev_temp: { un: '°C', casas: 2, q: [-2, -1.5, -1, -0.5, -0.25, 0.25, 0.5, 1, 1.5, 2], cores: () => divergente(FRIO, QUENTE, 5), sinal: true }
 };
 const VARS_MAPA = [
@@ -114,6 +116,8 @@ function desenhaMapa(canvas, m, esc, opc = {}) {
     else if (g.type === 'MultiPolygon') g.coordinates.forEach(p => p.forEach(anel));
     else if (g.type === 'GeometryCollection') g.geometries.forEach(geom); };
   (D.geo ? D.geo.features : []).forEach(f => geom(f.geometry));
+  (opc.pontos || []).forEach(([la, lo, d]) => { c.fillStyle = d <= 1 ? '#ffd23f' : '#ff7a1a'; c.strokeStyle = '#1a0d05'; c.lineWidth = 0.6;
+    c.beginPath(); c.arc(X(lo), Y(la), d <= 1 ? 2.6 : 2, 0, 7); c.fill(); c.stroke(); });
   if (!opc.semCidades) {
     c.font = '11px ' + css('--fonte'); c.textBaseline = 'middle';
     CIDADES.forEach(([n, lo, la]) => {
@@ -144,7 +148,7 @@ function legendaMapa(el, esc, titulo) {
   let h = '<div class="tit">' + titulo + '</div>';
   cores.forEach((cor, i) => {
     const rot = i === 0 ? '< ' + f(q[0]) : i === q.length ? '≥ ' + f(q[i - 1]) : f(q[i - 1]) + ' a ' + f(q[i]);
-    h += '<div class="cls"><i style="background:' + cor + '"></i>' + rot + '</div>';
+    h += '<div class="cls"><i style="background:' + cor + '"></i>' + (esc.nomes ? '<b>' + esc.nomes[i] + '</b><br>' : '') + rot + '</div>';
   });
   el.innerHTML = h;
 }
@@ -182,12 +186,12 @@ function imagemGrade(m, esc) {
   c.putImageData(img, 0, 0);
   return cv.toDataURL();
 }
-function mapaInterativo(id, m, esc) {
+function mapaInterativo(id, m, esc, extra = {}) {
   const el = $(id);
   if (!window.L) {                                          // reserva: mapa fixo
     el.classList.add('sem-base');
     if (!el.querySelector('canvas')) el.innerHTML = '<div class="mapa-wrap"><canvas></canvas></div>';
-    desenhaMapa(el.querySelector('canvas'), m, esc);
+    desenhaMapa(el.querySelector('canvas'), m, esc, { pontos: extra.pontos });
     return;
   }
   let o = MAPAS[id];
@@ -226,6 +230,13 @@ function mapaInterativo(id, m, esc) {
   o.cam = null; o.m = m; o.esc = esc;
   if (m) o.cam = L.imageOverlay(imagemGrade(m, esc), [[m.lat0 - m.ny * m.d, m.lon0], [m.lat0, m.lon0 + m.nx * m.d]],
     { pane: 'dados', opacity: 0.86, interactive: false, className: 'grade-pixel' }).addTo(o.map);
+  if (o.pts) o.map.removeLayer(o.pts);
+  o.pts = null;
+  if (extra.pontos && extra.pontos.length) {
+    const rend = o.rend || (o.rend = L.canvas({ pane: 'limites' }));
+    o.pts = L.layerGroup(extra.pontos.map(([la, lo, d]) => L.circleMarker([la, lo], { renderer: rend, radius: d <= 1 ? 3.2 : 2.4, weight: 0.7,
+      color: '#1a0d05', fillColor: d <= 1 ? '#ffd23f' : '#ff7a1a', fillOpacity: 0.95, interactive: false }))).addTo(o.map);
+  }
   setTimeout(() => o.map.invalidateSize(), 0);
 }
 function atualizaBase(o) {
@@ -505,11 +516,17 @@ const VARS_SERIE = [
   ['spi3', 'SPI-3 (seca, 3 meses)', 'sinal', '', 2, 'seco'], ['spi6', 'SPI-6 (seca, 6 meses)', 'sinal', '', 2, 'seco'], ['spi12', 'SPI-12 (seca, 12 meses)', 'sinal', '', 2, 'seco'], ['spi1', 'SPI-1 (seca, 1 mês)', 'sinal', '', 2, 'seco'],
   ['spei3', 'SPEI-3 (chuva − evaporação, 3 meses)', 'sinal', '', 2, 'seco'], ['spei6', 'SPEI-6', 'sinal', '', 2, 'seco'], ['spei12', 'SPEI-12', 'sinal', '', 2, 'seco'], ['spei1', 'SPEI-1', 'sinal', '', 2, 'seco'],
   ['tmax_anom', 'Temperatura máxima: diferença em relação à média (°C)', 'sinal', '°C', 1, 'temp'], ['tmed_anom', 'Temperatura média: diferença em relação à média (°C)', 'sinal', '°C', 1, 'temp'],
-  ['tmin_anom', 'Temperatura mínima: diferença em relação à média (°C)', 'sinal', '°C', 1, 'temp'], ['calor', 'Dias em onda de calor', 'clim', 'dias', 1, 'calor_clim']];
+  ['tmin_anom', 'Temperatura mínima: diferença em relação à média (°C)', 'sinal', '°C', 1, 'temp'], ['calor', 'Dias em onda de calor', 'clim', 'dias', 1, 'calor_clim'],
+  ['focos', 'Focos de calor no mês (MODIS/Aqua)', 'clim', 'focos', 0, 'focos_clim'], ['fwi', 'Perigo de fogo (FWI), média do mês', 'clim', '', 1, 'fwi_clim']];
+const VARS_CMP = [['spei3', 'SPEI-3 (seca, 3 meses)', '', 2], ['chuva_pct', 'Chuva: diferença em relação à média (%)', '%', 0], ['tmax_anom', 'Temperatura máxima: diferença (°C)', '°C', 1],
+  ['calor', 'Dias em onda de calor', 'dias', 1], ['focos', 'Focos de calor no mês', 'focos', 0], ['fwi', 'Perigo de fogo (FWI), média do mês', '', 1]];
 function seriesIniciar() {
   opcoes($('ser-reg'), D.meta.regioes.map(r => [r.id, nomeReg(r.id)]));
-  opcoes($('ser-var'), VARS_SERIE.map(v => [v[0], v[1]]));
+  const tem = k => D.series.regioes.bap[k] && D.series.regioes.bap[k].some(v => v != null);
+  opcoes($('ser-var'), VARS_SERIE.filter(v => tem(v[0])).map(v => [v[0], v[1]]));
+  opcoes($('cmp-var'), VARS_CMP.filter(v => tem(v[0])).map(v => [v[0], v[1]]));
   ['ser-reg', 'ser-var', 'ser-per'].forEach(id => $(id).onchange = seriesDesenhar);
+  ['cmp-var', 'cmp-ev'].forEach(id => $(id).onchange = () => comparaNinos($('ser-reg').value));
 }
 function seriesDesenhar() {
   const S = D.series, v = VARS_SERIE.find(x => x[0] === $('ser-var').value), reg = $('ser-reg').value, s = S.regioes[reg];
@@ -520,7 +537,7 @@ function seriesDesenhar() {
     const [neg, pos, rn, rp] = v[5] === 'temp' ? [COR.frio, COR.quente, 'abaixo da média', 'acima da média'] : [COR.seco, COR.umido, 'mais seco que a média', 'mais úmido que a média'];
     series = [{ nome: v[1].split(':')[0].split(' (')[0], tipo: 'barra', y: corta(s[v[0]]), cor: pos, corNeg: neg }]; leg = [[rn, neg, 'caixa'], [rp, pos, 'caixa']];
   } else {
-    const cor = v[0] === 'calor' ? COR.calor : css('--agua');
+    const cor = v[0] === 'calor' || v[0] === 'focos' || v[0] === 'fwi' ? COR.calor : css('--agua');
     series = [{ nome: 'observado', tipo: 'barra', y: corta(s[v[0]]), cor: cor }, { nome: 'média 1991–2020', tipo: 'linha', y: corta(s[v[5]]), cor: css('--tinta2'), esp: 2 }];
     leg = [['observado', cor, 'caixa'], ['média 1991–2020', css('--tinta2')]];
   }
@@ -543,7 +560,32 @@ function seriesDesenhar() {
   legenda($('enso-leg'), [['índice acima de zero', COR.quente, 'caixa'], ['abaixo de zero', COR.frio, 'caixa'], itemEvento(), ['período de La Niña', COR.frio, 'fundo']]);
   grafico($('ser-enso'), { x: xe, series: [{ nome: E.indice || 'índice', tipo: 'barra', y: xe.map(m => val[m] == null ? null : val[m]), cor: COR.quente, corNeg: COR.frio }],
     un: '°C', casas: 1, sinal: true, eixoMeses: true, rotDica: m => 'média de ' + trimestre(m), h: 190, titulo: 'El Niño', eventos: eventosNino(xe), faixas: faixas });
+  comparaNinos(reg);
   hidroDesenhar(reg);
+}
+function comparaNinos(reg) {
+  const S = D.series, E = S.enso, v = VARS_CMP.find(q => q[0] === $('cmp-var').value);
+  if (!E || !E.eventos || !v) { $('cmp-graf').innerHTML = '<p class="nota">Sem dados.</p>'; return; }
+  const lim = +$('cmp-ev').value, y = S.regioes[reg][v[0]], M = S.meses;
+  const evs = E.eventos.filter(e => e.tipo === 'El Niño' && (e.pico >= lim || e.em_curso));
+  const k0 = -3, k1 = 18, x = []; for (let k = k0; k <= k1; k++) x.push(k);
+  const series = [], leg = [];
+  let corI = 0;
+  evs.forEach(e => {
+    const i0 = M.indexOf(e.inicio); if (i0 < 0 && !e.em_curso) return;
+    const val = x.map(k => { const i = i0 + k; return i >= 0 && i < M.length && y[i] != null ? y[i] : null; });
+    if (!val.some(q => q != null)) return;
+    const atual = e.em_curso, cor = atual ? corAtual() : ANOS_COR[corI++ % ANOS_COR.length];
+    const nome = nomeEvento(e).replace(' (em curso, provisório)', ' (atual)').replace(' (em curso)', ' (atual)') + ' (' + num(e.pico, 1, true) + ')';
+    series.push({ nome: nome, tipo: 'linha', y: val, cor: cor, esp: atual ? 3.2 : 1.7, marcas: atual });
+    leg.push([nome, cor, atual ? 'linha-ponto' : 'linha']);
+  });
+  legenda($('cmp-leg'), leg);
+  const zero = x.indexOf(0);
+  grafico($('cmp-graf'), { x: x, series: series, un: v[2], casas: v[3], sinal: v[0] !== 'calor' && v[0] !== 'focos' && v[0] !== 'fwi', h: 270,
+    ticksX: x.map((_, i) => i).filter(i => x[i] % 3 === 0), rotX: k => k === 0 ? 'início' : (k > 0 ? '+' : '') + k,
+    rotDica: k => k === 0 ? 'mês de início do El Niño' : (k > 0 ? k + (k === 1 ? ' mês depois' : ' meses depois') : -k + (k === -1 ? ' mês antes' : ' meses antes')) + ' do início',
+    faixas: zero >= 0 ? [{ i0: zero, i1: zero, cor: css('--nino') }] : [] });
 }
 function hidroDesenhar(reg) {
   const H = D.series.hidro, R = H && H.regioes[reg];
@@ -565,6 +607,96 @@ function hidroDesenhar(reg) {
   $('hidro-titulo').textContent = 'Chuva acumulada no ano hidrológico (mm) — ' + nomeReg(reg);
   legenda($('hidro-leg'), leg);
   grafico($('hidro-graf'), { x: x, series: series, un: 'mm', casas: 0, rotDica: (m, i) => 'até o fim de ' + MESES_L[(H.mes_inicio - 1 + i) % 12], ticksX: x.map((_, i) => i), h: 270 });
+}
+
+/* ---------- Fogo ---------- */
+let regFogo = 'bap', pontosDias = 7, fogoAnos = null;
+function fogoDesenhar() {
+  const F = D.fogo || {}, Fo = F.focos, Fw = F.fwi;
+  const seg = $('fogo-reg');
+  seg.innerHTML = D.meta.regioes.map(r => '<button type="button" data-r="' + r.id + '"' + (r.id === regFogo ? ' class="ativo"' : '') + '>' + (NOMES[r.id] || [0, r.nome])[1] + '</button>').join('');
+  seg.querySelectorAll('button').forEach(b => b.onclick = () => { regFogo = b.dataset.r; fogoDesenhar(); });
+  // cartões
+  let t = '';
+  if (Fo) { const r = Fo.regioes[regFogo], dif = r.normal30 > 0 ? (r.ult30 / r.normal30 - 1) * 100 : null, difA = r.normal_ano > 0 ? (r.ano / r.normal_ano - 1) * 100 : null;
+    const comp = d => d == null ? '' : Math.abs(d) < 10 ? 'perto da média' : num(Math.abs(d)) + '% ' + (d > 0 ? 'acima' : 'abaixo') + ' da média';
+    t += '<div class="tile"><div class="rot">Focos nos últimos 30 dias</div><div class="val">' + num(r.ult30) + '<small>focos</small></div><div class="det">Até ' + fmtDataL(Fo.ultimo) + '. Média de ' + Fo.ref + ' para estes 30 dias: ' + num(r.normal30) + ' (' + comp(dif) + ').</div></div>';
+    t += '<div class="tile"><div class="rot">Focos no ano, até agora</div><div class="val">' + num(r.ano) + '<small>focos</small></div><div class="det">Média até esta data: ' + num(r.normal_ano) + ' (' + comp(difA) + '). É o ' + r.posicao_ano + 'º maior total para esta data em ' + r.n_anos + ' anos.</div></div>'; }
+  if (Fw) { const r = Fw.regioes[regFogo], cl = classe(r.ultimo, ESC.fwi.q);
+    t += '<div class="tile"><div class="rot">Perigo de fogo (FWI) em ' + fmtData(Fw.ultimo) + '</div><div class="val"><i class="chip" style="background:' + ESC.fwi.cores()[cl] + '"></i>' + num(r.ultimo, 1) + '<small>' + ESC.fwi.nomes[cl] + '</small></div>' +
+      '<div class="det">' + (r.percentil != null ? 'Mais alto que ' + num(r.percentil) + '% dos dias desta época do ano em ' + Fw.ref + '. ' : '') + r.dias_acima_p90_30 + ' dia(s) entre os 10% mais perigosos nos últimos 30.</div></div>'; }
+  const sq = D.series.regioes[regFogo].seco_quente, iq = ultimoIdx(sq);
+  if (iq >= 0) { const c = sq[iq], txt = ['sem seca nem calor fora do comum', 'calor fora do comum, sem seca', 'seca, sem calor fora do comum', 'seca e calor juntos'][c];
+    t += '<div class="tile"><div class="rot">Seca e calor em ' + fmtMesL(D.series.meses[iq]) + '</div><div class="val" style="font-size:19px"><i class="chip" style="background:' + corSQ(c) + '"></i>' + txt + '</div><div class="det">Seca pelo SPEI-3; calor pela temperatura máxima do mês. Veja o calendário abaixo.</div></div>'; }
+  $('fogo-tiles').innerHTML = t || '<p class="nota">Dados de fogo indisponíveis nesta atualização.</p>';
+  // mapa
+  $('fogo-mapa-bloco').hidden = !(Fw || Fo);
+  if (Fw || Fo) {
+    $('fogo-pontos').innerHTML = (Fo ? [[1, 'Focos de ontem'], [7, 'Focos de 7 dias'], [30, 'Focos de 30 dias'], [0, 'Sem focos']] : []).map(([d, n]) => '<button type="button" data-d="' + d + '"' + (d === pontosDias ? ' class="ativo"' : '') + '>' + n + '</button>').join('');
+    $('fogo-pontos').querySelectorAll('button').forEach(b => b.onclick = () => { pontosDias = +b.dataset.d; fogoDesenhar(); });
+    const pts = Fo && pontosDias ? Fo.pontos.filter(p => p[2] < pontosDias) : [];
+    mapaInterativo('fogo-mapa', Fw ? Fw.mapa : null, ESC.fwi, { pontos: pts });
+    if (Fw) legendaMapa($('fogo-mapa-leg'), ESC.fwi, 'Perigo de fogo (FWI) em ' + fmtDataL(Fw.mapa.data)); else $('fogo-mapa-leg').innerHTML = '';
+    $('fogo-mapa-sub').textContent = (Fw ? 'Cores: perigo de fogo em ' + fmtDataL(Fw.mapa.data) + '. ' : '') + (Fo ? 'Pontos: ' + pts.length + ' focos de calor' + (pontosDias ? (pontosDias === 1 ? ' do último dia' : ' dos últimos ' + pontosDias + ' dias') : '') + ' até ' + fmtDataL(Fo.ultimo) + '; amarelos, os do último dia.' : '');
+  }
+  // focos acumulados no ano
+  $('fogo-ac-bloco').hidden = !Fo;
+  if (Fo) {
+    const R = Fo.regioes[regFogo], anos = Object.keys(R.anos).sort(), atual = anos[anos.length - 1];
+    if (!fogoAnos) fogoAnos = ['2020', '2024'].filter(a => R.anos[a] && a !== atual);
+    const sel = fogoAnos.filter(a => R.anos[a]), mudo = css('--mudo'), ca = css('--nino');
+    const series = [{ nome: 'faixa 10–90%', tipo: 'banda', y: R.clim.p10, y2: R.clim.p90, cor: mudo }, { nome: 'mediana', tipo: 'linha', y: R.clim.p50, cor: mudo, esp: 1.5, traco: '4 3' }];
+    sel.forEach((a, k) => series.push({ nome: a, tipo: 'linha', y: R.anos[a], cor: ANOS_COR[k % ANOS_COR.length], esp: 1.6 }));
+    series.push({ nome: atual, tipo: 'linha', y: R.anos[atual], cor: ca, esp: 3 });
+    $('fogo-ac-tit').textContent = 'Focos de calor acumulados no ano — ' + nomeReg(regFogo);
+    legenda($('fogo-ac-leg'), [['faixa 10–90% (' + Fo.ref + ')*', mudo, 'caixa'], ['mediana', mudo, 'tracejada'], [atual + ' (ano atual)', ca, 'grossa']]);
+    const livres = anos.filter(a => a !== atual && !sel.includes(a)).reverse();
+    $('fogo-anos').innerHTML = '<span>Comparar com:</span>' + sel.map((a, k) => '<span class="ch"><i style="background:' + ANOS_COR[k % ANOS_COR.length] + '"></i>' + a + '<button type="button" data-a="' + a + '" aria-label="Remover ' + a + '">×</button></span>').join('') +
+      (sel.length < 6 ? '<select id="fogo-add" aria-label="Adicionar ano"><option value="">+ adicionar ano</option>' + livres.map(a => '<option>' + a + '</option>').join('') + '</select>' : '');
+    $('fogo-anos').querySelectorAll('button').forEach(b => b.onclick = () => { fogoAnos = fogoAnos.filter(a => a !== b.dataset.a); fogoDesenhar(); });
+    if ($('fogo-add')) $('fogo-add').onchange = ev => { if (ev.target.value) { fogoAnos = fogoAnos.concat([ev.target.value]); fogoDesenhar(); } };
+    const ini = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334], x = Array.from({ length: 365 }, (_, i) => i);
+    const data = i => { let m = 11; while (ini[m] > i) m--; return 'até ' + (i - ini[m] + 1) + ' de ' + MESES[m]; };
+    grafico($('fogo-ac-graf'), { x: x, series: series, un: 'focos', casas: 0, h: 300, ticksX: ini.map(v => v + 14), ticksMenores: ini.concat([365]),
+      rotX: (_, i) => MESES[ini.findIndex(v => v + 14 === i)], rotDica: (_, i) => data(i) });
+  }
+  // FWI: últimos 6 meses
+  $('fwi-bloco').hidden = !Fw;
+  if (Fw) {
+    const R = Fw.regioes[regFogo], x = R.datas, ca = css('--nino'), mudo = css('--mudo');
+    $('fwi-tit').textContent = 'Perigo de fogo (FWI) nos últimos 6 meses — ' + nomeReg(regFogo);
+    legenda($('fwi-leg'), [['FWI diário', ca, 'grossa'], ['mediana ' + Fw.ref, mudo, 'tracejada'], ['percentil 90 (10% dos dias mais perigosos)', css('--tinta2'), 'tracejada']]);
+    const tk = x.map((d, i) => d.slice(8) === '01' ? i : -1).filter(i => i >= 0);
+    grafico($('fwi-graf'), { x: x, series: [{ nome: 'mediana', tipo: 'linha', y: R.p50, cor: mudo, esp: 1.5, traco: '4 3' },
+      { nome: 'percentil 90', tipo: 'linha', y: R.p90, cor: css('--tinta2'), esp: 1.3, traco: '2 3' }, { nome: 'FWI', tipo: 'linha', y: R.v, cor: ca, esp: 2.2 }],
+      un: '', casas: 1, h: 260, ticksX: tk, rotX: d => fmtMesC(d.slice(0, 7)), rotDica: d => fmtDataC(d) });
+  }
+  seqCalor();
+}
+function corSQ(c) { return [css('--meio'), '#e9a3a0', COR.seco, css('--nino')][c]; }
+function seqCalor() {
+  const S = D.series, R = S.regioes[regFogo], cod = R.seco_quente, M = S.meses, el = $('sq-graf');
+  $('sq-tit').textContent = 'Seca e calor juntos — ' + nomeReg(regFogo);
+  legenda($('sq-leg'), [['seca e calor juntos', corSQ(3), 'caixa'], ['só seca', corSQ(2), 'caixa'], ['só calor', corSQ(1), 'caixa'], ['nenhum dos dois', corSQ(0), 'caixa'], ['meses de El Niño', css('--nino'), 'linha']]);
+  const nino = new Set();
+  (S.enso && S.enso.eventos || []).filter(e => e.tipo === 'El Niño').forEach(e => { const fim = e.em_curso ? M[M.length - 1] : e.fim; M.forEach(m => { if (m >= e.inicio && m <= fim) nino.add(m); }); });
+  const anos = [...new Set(M.filter((m, i) => cod[i] != null).map(m => m.slice(0, 4)))];
+  const W = Math.max(el.clientWidth, 300), ml = 40, cw = (W - ml - 4) / 12, ch = Math.min(18, Math.max(12, cw * 0.42)), H = 18 + anos.length * ch + 4;
+  let s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Calendário de seca e calor">';
+  MESES.forEach((m, j) => { s += '<text x="' + (ml + (j + 0.5) * cw) + '" y="12" text-anchor="middle">' + m + '</text>'; });
+  anos.forEach((a, r) => {
+    const y = 18 + r * ch;
+    if (+a % 5 === 0 || r === anos.length - 1) s += '<text x="' + (ml - 6) + '" y="' + (y + ch * 0.72) + '" text-anchor="end">' + a + '</text>';
+    for (let j = 0; j < 12; j++) { const k = a + '-' + String(j + 1).padStart(2, '0'), i = M.indexOf(k); if (i < 0 || cod[i] == null) continue;
+      s += '<rect x="' + (ml + j * cw + 1) + '" y="' + (y + 1) + '" width="' + (cw - 2) + '" height="' + (ch - 2) + '" rx="2" fill="' + corSQ(cod[i]) + '" data-i="' + i + '"/>';
+      if (nino.has(k)) s += '<rect x="' + (ml + j * cw + 1) + '" y="' + (y + ch - 3) + '" width="' + (cw - 2) + '" height="2" fill="' + css('--nino') + '" pointer-events="none"/>'; }
+  });
+  el.innerHTML = s + '</svg>';
+  el.firstChild.addEventListener('pointermove', ev => { const i = ev.target.dataset && ev.target.dataset.i; if (i == null) return escondeDica();
+    const c = cod[i], txt = ['sem seca nem calor fora do comum', 'calor fora do comum', 'seca', 'seca e calor juntos'][c];
+    mostraDica('<b>' + fmtMesL(M[i]) + '</b>' + txt + '<div class="l"><span>SPEI-3</span><span>' + num(R.spei3[i], 1, true) + '</span></div><div class="l"><span>Tmax: diferença</span><span>' + num(R.tmax_anom[i], 1, true) + ' °C</span></div>' +
+      (nino.has(M[i]) ? '<div class="ev">El Niño</div>' : ''), ev.clientX, ev.clientY); });
+  el.firstChild.addEventListener('pointerleave', escondeDica);
 }
 
 /* ---------- Previsão ---------- */
@@ -682,8 +814,8 @@ function sobre() {
 }
 
 /* ---------- navegação ---------- */
-const ABAS = ['visao', 'mapas', 'series', 'previsao', 'verificacao', 'rio', 'sobre'];
-const desenha = { visao: visao, mapas: mapasDesenhar, series: seriesDesenhar, previsao: previsaoDesenhar, verificacao: verifDesenhar, rio: rioDesenhar, sobre: sobre };
+const ABAS = ['visao', 'mapas', 'series', 'fogo', 'previsao', 'verificacao', 'rio', 'sobre'];
+const desenha = { visao: visao, mapas: mapasDesenhar, series: seriesDesenhar, fogo: fogoDesenhar, previsao: previsaoDesenhar, verificacao: verifDesenhar, rio: rioDesenhar, sobre: sobre };
 const pronto = {};
 function rota() {
   let a = location.hash.replace('#', ''); if (!ABAS.includes(a)) a = 'visao';
@@ -699,6 +831,7 @@ async function iniciar() {
   try {
     [D.meta, D.series, D.geo, D.prev, D.verif, D.rio] = await Promise.all(['meta.json', 'series.json', 'regioes.geojson', 'previsao.json', 'verificacao.json', 'rio.json'].map(a => json(a)));
     D.agora = await json('agora.json', true);
+    D.fogo = await json('fogo.json', true);
   } catch (e) {
     ABAS.forEach(x => $('s-' + x).hidden = true); $('s-vazio').hidden = false; $('abas').hidden = true; return;
   }

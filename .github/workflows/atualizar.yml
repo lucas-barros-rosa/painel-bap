@@ -41,6 +41,7 @@ jobs:
         env:
           CDSAPI_URL: https://cds.climate.copernicus.eu/api
           CDSAPI_KEY: ${{ secrets.CDSAPI_KEY }}
+          FIRMS_MAP_KEY: ${{ secrets.FIRMS_MAP_KEY }}   # chave gratuita da NASA FIRMS (focos de calor)
           TEMPO_MAX_MIN: "300"     # para de baixar depois de 5 h e continua na próxima execução
         run: python atualizar_dados.py
 

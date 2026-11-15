@@ -108,5 +108,19 @@ def rodar():
     taxa = np.array([230, 200, 160, 90, 45, 15, 8, 15, 50, 110, 170, 220.0])[mesd] / 30
     chuva = rng.gamma(0.5, 2 * taxa[:, None, None] * 0.6, size=(len(dd), G05["ny"], G05["nx"])).astype("float32")
     chuva_diaria = (chuva, dd, str(dd[-25]))
+    # fogo simulado: focos (sazonais, com 2020 e 2024 extremos) e FWI diário em grade de 0,25°
+    dias_f = np.arange(np.datetime64("2003-01-01"), np.datetime64(hoje) - 1)
+    mes_f = dias_f.astype("datetime64[M]").astype(int) % 12
+    ano_f = dias_f.astype("datetime64[Y]").astype(int) + 1970
+    lam = np.array([1, 1, 1, 2, 4, 8, 20, 45, 60, 35, 10, 3.0])[mes_f] * np.where(np.isin(ano_f, [2020, 2024]), 4, 1) * np.where(ano_f == hoje.year, 1.6, 1)
+    n_f = rng.poisson(lam)
+    datas_f = np.repeat(dias_f, n_f)
+    lat_f = rng.uniform(C.LAT0 - C.ALT, C.LAT0, len(datas_f)); lon_f = rng.uniform(C.LON0, C.LON0 + C.LARG, len(datas_f))
+    dias_w = np.arange(np.datetime64("1991-01-01"), np.datetime64(hoje) - 3)
+    la_w = np.arange(C.LAT0 + 0.25, C.LAT0 - C.ALT - 0.25, -0.25); lo_w = np.arange(C.LON0 - 0.25, C.LON0 + C.LARG + 0.25, 0.25)
+    saz_w = 18 + 14 * np.sin(2 * np.pi * (pr.dia_do_ano_365(dias_w) - 150) / 365)
+    x_w = (saz_w[:, None, None] + rng.normal(0, 4, (len(dias_w), 1, 1)) + np.linspace(0, 6, len(la_w))[None, :, None]).clip(0).astype("float32")
+    x_w = np.broadcast_to(x_w, (len(dias_w), len(la_w), len(lo_w))).copy()
+    fogo_demo = {"focos": (datas_f, lat_f, lon_f, dias_f[-1]), "fwi": (x_w, dias_w, la_w, lo_w)}
     gerar_saida(P, anos_p, meses_p, tmax, tmin, datas, m05, m10, geo, prev, rio, (oni, 'RONI', {'semana': str(hoje - dt.timedelta(days=10)), 'nino34': 3.3, 'nino12': 4.7}), chuva_diaria=chuva_diaria, demo=True,
-                  fontes={"chuva": "dados simulados", "regioes": "Limites esquemáticos, apenas para demonstração."})
+                  fontes={"chuva": "dados simulados", "regioes": "Limites esquemáticos, apenas para demonstração."}, fogo=fogo_demo)

@@ -65,6 +65,19 @@ URL_ONI = "https://www.cpc.ncep.noaa.gov/data/indices/oni.ascii.txt"     # reser
 URL_NINO_SEMANAL = "https://www.cpc.ncep.noaa.gov/data/indices/wksst9120.for"  # Niño semanal (OISST, 1991-2020)
 EL_NINO_AVISO = "2026-06-11"           # data em que a NOAA emitiu o "El Niño Advisory" (só para exibição)
 
+# ----------------------------------------------------------------------------- fogo
+# Focos de calor: NASA FIRMS, MODIS do satélite Aqua (passagem no início da tarde, como o "satélite de referência" do INPE).
+# Precisa de uma chave gratuita (MAP_KEY): segredo FIRMS_MAP_KEY no GitHub, ou arquivo ~/.firms_key no seu computador.
+FIRMS_API = "https://firms.modaps.eosdis.nasa.gov/api/"
+FIRMS_INICIO = "2003-01-01"            # primeiro ano completo do Aqua
+FIRMS_CONF_MIN = 30                    # exclui focos de baixa confiança (< 30%; Giglio et al., 2016)
+FOCOS_REF = (2003, 2022)               # período de comparação dos focos (20 anos completos do Aqua)
+# Perigo de fogo: FWI do Copernicus Emergency Management Service (reanálise ERA5), no Early Warning Data Store
+EWDS_URL = "https://ewds.climate.copernicus.eu/api"
+FWI_ANO_INICIAL = 1991                 # início da normal 1991-2020
+FWI_ATRASO_DIAS = 3
+FWI_MAX_MIN = 120                      # tempo máximo por execução para baixar o FWI (a carga inicial é dividida)
+
 # ----------------------------------------------------------------------------- rio Paraguai (ANA)
 ESTACOES_RIO = [("66825000", "Ladário"), ("66070004", "Cáceres"), ("67100000", "Porto Murtinho")]
 RIO_ANO_INICIAL = 1980                 # anos que o site deixa escolher para comparar no gráfico do rio

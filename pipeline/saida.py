@@ -50,7 +50,7 @@ def amostrar_vizinho(campo, lats_o, lons_o, g):
 
 
 def gerar_saida(P, anos_p, meses_p, tmax, tmin, datas, m05, m10, geo, previsoes=None, rio=None, enso=None,
-                chuva_diaria=None, demo=False, fontes=None):
+                chuva_diaria=None, demo=False, fontes=None, fogo=None):
     """Calcula índices, médias regionais e grava todos os JSON do site.
     P: chuva mensal [t, y, x]; tmax/tmin: diárias [d, y, x] (podem incluir o mês em curso, incompleto);
     enso: (série, nome do índice); chuva_diaria: (P_d [d, y, x], datas_d, primeira data preliminar)."""
@@ -140,6 +140,14 @@ def gerar_saida(P, anos_p, meses_p, tmax, tmin, datas, m05, m10, geo, previsoes=
         for k in pr.ESCALAS:
             s[f"spi{k}"] = arred(pr.spi(p[:, None], anos, meses, k)[:, 0], 2)
             s[f"spei{k}"] = arred(pr.spei((p - et)[:, None], anos, meses, k)[:, 0], 2)
+        # seca e calor juntos: SPEI-3 <= -1 e Tmax do mês acima do percentil 90 daquele mês em 1991-2020
+        sp3 = pr.spei((p - et)[:, None], anos, meses, 3)[:, 0]
+        ref = (anos >= pr.REF_INI) & (anos <= pr.REF_FIM)
+        p90 = np.array([np.nanpercentile(tx[ref & (meses == m)], 90) if np.isfinite(tx[ref & (meses == m)]).any() else np.nan
+                        for m in range(1, 13)])
+        seco, quente = sp3 <= -1, tx > p90[meses - 1]
+        cod = np.where(np.isfinite(sp3) & np.isfinite(tx), seco * 2 + quente, np.nan)
+        s["seco_quente"] = arred(cod, 0)
         series[r["id"]] = s
         reg_P[r["id"]], reg_T[r["id"]] = p, tm
     # ---------------- El Niño: série, eventos e início do evento atual
@@ -153,6 +161,27 @@ def gerar_saida(P, anos_p, meses_p, tmax, tmin, datas, m05, m10, geo, previsoes=
 
     # ---------------- ano hidrológico (chuva acumulada desde outubro)
     hidro = ano_hidrologico_json(reg_P, anos, meses, chuva_diaria, m05, w05, masc)
+
+    # ---------------- fogo: focos de calor e FWI
+    fogo_json = {}
+    if fogo and fogo.get("focos"):
+        import fogo as fg
+        log("Calculando focos de calor…")
+        fogo_json["focos"], mens = fg.focos_json(*fogo["focos"], m05, REGIOES, rot)
+        a0, a1 = C.FOCOS_REF
+        for r in REGIOES:
+            v = np.array([np.nan if x is None else x for x in mens[r["id"]]], float)
+            series[r["id"]]["focos"] = arred(v, 0)
+            series[r["id"]]["focos_clim"] = arred(pr.climatologia_mensal(v, anos, meses, a0, a1)[meses - 1], 0)
+    if fogo and fogo.get("fwi"):
+        import fogo as fg
+        log("Calculando o perigo de fogo (FWI)…")
+        fogo_json["fwi"], mens = fg.fwi_json(*fogo["fwi"], m10, REGIOES, rot, w10)
+        for r in REGIOES:
+            v = np.array([np.nan if x is None else x for x in mens[r["id"]]], float)
+            series[r["id"]]["fwi"] = arred(v, 1)
+            series[r["id"]]["fwi_clim"] = arred(pr.climatologia_mensal(v, anos, meses)[meses - 1], 1)
+    grava(C.SAIDA / "fogo.json", fogo_json)
 
     grava(C.SAIDA / "series.json", {"meses": rot, "regioes": series, "enso": info_enso, "hidro": hidro})
 

@@ -18,6 +18,7 @@ import argparse, sys
 import numpy as np
 import config as C
 import fontes
+import fogo
 from comum import TempoEsgotado, log
 from saida import gerar_saida, rio_json
 
@@ -92,6 +93,16 @@ def principal():
                 log("   sem dados de nível; dá para usar CSVs em pipeline/entrada/nivel_<codigo>.csv (data,nivel_cm)")
         log("Índice do El Niño (NOAA/CPC)…")
         enso = fontes.baixar_enso() + (fontes.baixar_nino_semanal(),)
+        fogo_d = {}
+        for chave_f, nome_f, func in (("focos", "Focos de calor (NASA FIRMS)", fogo.focos),
+                                      ("fwi", "Perigo de fogo (FWI, Copernicus CEMS)", fogo.fwi_diario)):
+            log(nome_f + "…")
+            try:
+                fogo_d[chave_f] = func()
+            except TempoEsgotado:
+                log("   tempo desta execução esgotado; fica para a próxima")
+            except Exception as e:                                 # noqa
+                log(f"   indisponível nesta execução: {str(e)[:250]}")
     except TempoEsgotado:
         log("Tempo limite desta execução atingido. O que já foi baixado está no cache; "
             "a próxima execução continua de onde parou. O site não foi atualizado desta vez.")
@@ -99,7 +110,7 @@ def principal():
 
     fontes_txt = {"chuva": "CHIRPS v3, 0,05° (Funk et al., 2026)", "regioes": desc}
     gerar_saida(P, anos_p, meses_p, tmax, tmin, datas, m05, m10, geo, previsoes, rio, enso,
-                chuva_diaria=chuva_diaria, fontes=fontes_txt)
+                chuva_diaria=chuva_diaria, fontes=fontes_txt, fogo=fogo_d)
     (C.AQUI / ".completo").write_text("ok")                       # sinal para o GitHub publicar o site
     return 0
 

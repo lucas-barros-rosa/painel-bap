@@ -505,9 +505,24 @@ def _fila_cheia(e):
     return "queued requests" in t or "request data sequentially" in t
 
 
+def _c3s_juntar(arq):
+    """O CDS pode devolver um .zip com um NetCDF por variável: junta tudo num só e confere se veio a chuva."""
+    import xarray as xr
+    if zipfile.is_zipfile(arq):
+        with tempfile.TemporaryDirectory() as d, zipfile.ZipFile(arq) as z:
+            z.extractall(d)
+            partes = [xr.open_dataset(p).load() for p in sorted(Path(d).glob("*.nc"))]
+        xr.merge(partes, compat="override").to_netcdf(arq)
+    with xr.open_dataset(arq) as ds:
+        nomes = [v.lower() for v in ds.data_vars]
+    if not any(k in v for v in nomes for k in ("tpara", "tprate", "precip")):
+        arq.unlink()
+        raise ValueError(f"o arquivo veio sem a chuva (variáveis: {nomes})")
+
+
 def c3s_baixar(centro, sistema, ano, mes):
     import cdsapi, time
-    arq = C.CACHE / f"c3s_{centro}_{sistema}_{ano}{mes:02d}.nc"
+    arq = C.CACHE / f"c3s2_{centro}_{sistema}_{ano}{mes:02d}.nc"     # "c3s2": versão com chuva e temperatura
     if arq.exists():
         return arq
     cliente = cdsapi.Client(quiet=True)
@@ -517,10 +532,11 @@ def c3s_baixar(centro, sistema, ano, mes):
             try:
                 cliente.retrieve("seasonal-postprocessed-single-levels", {
                     "originating_centre": centro, "system": sistema,
-                    "variable": ["2m_temperature_anomaly", "total_precipitation_anomaly"],
+                    "variable": ["2m_temperature_anomaly", "total_precipitation_anomalous_rate_of_accumulation"],
                     "product_type": [tipo], "year": [str(ano)], "month": [f"{mes:02d}"],
                     "leadtime_month": ["1", "2", "3", "4", "5", "6"],
                     "data_format": "netcdf", "area": C.C3S_AREA}, str(arq))
+                _c3s_juntar(arq)
                 return arq
             except TempoEsgotado:
                 raise
@@ -545,7 +561,7 @@ def c3s_todas():
     for centro, sistema, nome in C.C3S_MODELOS:
         if parar:                                                      # usa só o que já está no cache
             rodadas = {}
-            for arq in sorted(C.CACHE.glob(f"c3s_{centro}_{sistema}_*.nc")):
+            for arq in sorted(C.CACHE.glob(f"c3s2_{centro}_{sistema}_*.nc")):
                 a_, m_ = int(arq.stem[-6:-2]), int(arq.stem[-2:])
                 try:
                     rodadas[(a_, m_)] = c3s_ler(arq, a_, m_)

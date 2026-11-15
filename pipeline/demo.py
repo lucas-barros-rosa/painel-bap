@@ -81,7 +81,7 @@ def rodar():
     lats = np.arange(-13.0, -23.5, -1.0); lons = np.arange(-61.0, -51.5, 1.0)
     gp = {"ny": len(lats), "nx": len(lons)}
     prev = {}
-    for mid, nome, vies in (("ecmwf", "ECMWF SEAS5 (simulado)", 0.0), ("cmcc", "CMCC SPS3.5 (simulado)", 8.0)):
+    for mid, nome, vies in (("ecmwf", "ECMWF SEAS5 (simulado)", 0.0), ("cmcc", "CMCC SPS4 (simulado)", 8.0)):
         rod = {}
         a, m = C.VERIF_INICIO
         while (a, m) <= (hoje.year, hoje.month):

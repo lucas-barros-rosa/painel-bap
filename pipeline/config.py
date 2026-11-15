@@ -51,7 +51,7 @@ ERA5_CAUDA_MESES_MAX = 3               # no máximo tantos meses recentes pedido
 # (centro, sistema, nome). Os números de sistema mudam com o tempo: confira no CDS se um modelo falhar.
 C3S_MODELOS = [
     ("ecmwf", "51", "ECMWF SEAS5"),
-    ("cmcc", "35", "CMCC SPS3.5"),
+    ("cmcc", "4", "CMCC SPS4"),             # SPS4 substituiu o SPS3.5 no C3S em ago/2025
 ]
 VERIF_INICIO = (2026, 1)               # primeira emissão usada em "Previsto × observado"
 C3S_AREA = [-13, -61, -23, -52]        # N, O, S, L (graus inteiros; grade de 1°)

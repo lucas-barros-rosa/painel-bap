@@ -268,7 +268,13 @@ code{background:var(--meio);padding:1px 5px;border-radius:4px;font-size:13px}
 .regiao-mini{margin:0 0 6px;flex-wrap:wrap}
 .regiao-mini .seg button{font-size:12px;padding:4px 8px}
 #agora-camadas{margin-bottom:10px}
-@media (max-width:760px){ .agora .tiles{grid-template-columns:repeat(2,minmax(0,1fr))} .agora-mapa .mapa-int{height:62vh} }
+@media (max-width:900px){
+  .agora{grid-template-columns:minmax(0,1fr)}                 /* celular e tablet: mapa em cima, números embaixo */
+  .agora .tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .agora-mapa .mapa-int{height:58vh;min-height:320px}
+}
+.regiao-mini .seg{flex-wrap:wrap;max-width:100%}
+.agora > *{min-width:0}
 /* fogo: cartões curtos logo abaixo do mapa */
 .tiles-fogo{margin:0 0 16px}
 .tiles-fogo .det b{color:var(--tinta);font-weight:600}

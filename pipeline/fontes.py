@@ -44,6 +44,24 @@ def existe(url):
         return False
 
 
+_CHC = None
+
+
+def chc_no_ar():
+    """Testa uma única vez por execução se o servidor do CHIRPS responde (espera no máximo 20 s).
+    Se não responder, o resto do CHIRPS usa só o que já está no cache, sem novas tentativas."""
+    global _CHC
+    if _CHC is None:
+        import requests
+        try:
+            requests.head(C.CHIRPS, timeout=20, allow_redirects=True)
+            _CHC = True
+        except Exception as e:                                     # noqa
+            _CHC = False
+            log(f"   servidor do CHIRPS não respondeu ({type(e).__name__}); uso só o que já está no cache")
+    return _CHC
+
+
 # =============================================================================
 # Limites: sua BAP + estados (IBGE) + Pantanal (bioma IBGE)
 # =============================================================================
@@ -184,6 +202,8 @@ def chirps_mensal():
         if arq.exists():
             x = np.load(arq)
         else:
+            if not chc_no_ar():
+                break                                              # servidor fora do ar: fica com o cache
             url = C.CHIRPS_MENSAL.format(a=a, m=m)
             recente = (hoje.year * 12 + hoje.month) - (a * 12 + m) <= 3
             if recente and not existe(url):
@@ -229,8 +249,12 @@ def chirps_diario(n_dias=120):
     hoje = np.datetime64(dt.date.today())
     datas = np.arange(hoje - n_dias, hoje)
     anos = sorted({int(str(d)[:4]) for d in datas})
-    final, ok_f = _listar_diarios(C.CHIRPS_DIARIO_FINAL, anos, "rnl")
-    prelim, ok_p = _listar_diarios(C.CHIRPS_DIARIO_PRELIM, anos, "sat")
+    no_ar = chc_no_ar()
+    if no_ar:
+        final, ok_f = _listar_diarios(C.CHIRPS_DIARIO_FINAL, anos, "rnl")
+        prelim, ok_p = _listar_diarios(C.CHIRPS_DIARIO_PRELIM, anos, "sat")
+    else:                                                          # fora do ar: nada remoto, só o cache
+        final, ok_f, prelim, ok_p = {}, True, {}, True
     if not ok_f:
         final = {d: f"{C.CHIRPS_DIARIO_FINAL}{str(d)[:4]}/chirps-v3.0.rnl.{str(d).replace('-', '.')}.tif" for d in datas}
     if not ok_p:

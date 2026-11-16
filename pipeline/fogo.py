@@ -227,12 +227,16 @@ def fwi_diario():
     hoje = dt.date.today()
     partes = []
     t0 = time.time()
+    if C.FWI_PAUSADO:
+        log("   Copernicus suspendeu a atualização do FWI; uso só o que já está guardado")
 
     def pedir(nome, tipo, ano, meses, refazer=False):
         arq = pasta / f"{nome}.npz"
-        if arq.exists() and not refazer:
+        if arq.exists() and (not refazer or C.FWI_PAUSADO):
             z = np.load(arq)
             return z["x"], z["d"], z["la"], z["lo"]
+        if C.FWI_PAUSADO:                                          # Copernicus em migração: não pede nada
+            return "atualização do Copernicus suspensa (FWI_PAUSADO no config.py)"
         if (time.time() - t0) / 60 > C.FWI_MAX_MIN:
             raise RuntimeError(f"carga do FWI pausada após {C.FWI_MAX_MIN} min; continua na próxima execução")
         for vez in range(C.CDS_ESPERAS_FILA + 1):

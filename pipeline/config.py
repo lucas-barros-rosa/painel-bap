@@ -78,10 +78,14 @@ FOCOS_RUPTURA = 2014                  # mudança do regime de fogo do Pantanal (
 # Perigo de fogo: FWI do Copernicus Emergency Management Service (reanálise ERA5), no Early Warning Data Store
 EWDS_URL = "https://ewds.climate.copernicus.eu/api"
 TEMPORADA_FOGO = (6, 10)              # junho a outubro (Belém et al., 2026)
+# O Copernicus suspendeu a atualização do FWI em 16/11/2026 (migração do arquivo MARS). Enquanto True,
+# o pipeline não faz pedidos ao EWDS e usa só o que já está guardado. Volte para False quando o
+# conjunto "cems-fire-historical-v1" voltar a ser atualizado.
+FWI_PAUSADO = True
 FWI_ANO_INICIAL = 1991                 # início da normal 1991-2020
 FWI_ATRASO_DIAS = 3
 FWI_PEDIDO_TROCA = {}                  # ajustes no pedido ao EWDS, se necessário (ver testar_fogo.py)
-FWI_MAX_MIN = 120                      # tempo máximo por execução para baixar o FWI (a carga inicial é dividida)
+FWI_MAX_MIN = 30                      # tempo máximo por execução para baixar o FWI (a carga inicial é dividida)
 
 # ----------------------------------------------------------------------------- rio Paraguai (ANA)
 ESTACOES_RIO = [("66825000", "Ladário"), ("66070004", "Cáceres"), ("67100000", "Porto Murtinho")]

@@ -3,8 +3,18 @@
 name: Atualizar painel
 
 on:
+  push:                            # roda sozinho quando chegam ao GitHub:
+    branches: [main]
+    paths:
+      - "pipeline/entrada/nivel_*.csv"   # o nível do rio enviado pelo seu computador (05:30)
+      - "pipeline/*.py"                  # mudanças no código do pipeline
+      - "pipeline/requirements.txt"
+      - "site/**"                        # mudanças no site
+      - ".github/workflows/**"
   schedule:
-    - cron: "0 10 * * 1,4"        # segundas e quintas, 10:00 UTC (06:00 em Cuiabá/Campo Grande)
+    # reserva, caso o computador esteja desligado: segundas e quintas, 10:47 UTC (06:47 em Cuiabá).
+    # Fora da hora cheia, quando o GitHub mais atrasa ou descarta execuções agendadas.
+    - cron: "47 10 * * 1,4"
   workflow_dispatch:               # botão "Run workflow"
 
 concurrency:
